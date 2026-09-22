@@ -3,12 +3,16 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+import math
+
 import torch
 
 from zbot_rl_isaaclab.tasks.velocity.mdp.curriculums import (
     compute_stepping_promotion_metrics,
-    meets_stepping_promotion_gate,
-    stage_two_blend,
+    frequency_control_progress,
+    meets_stepping_performance_gate,
+    stability_progress,
+    stepping_performance_blend,
 )
 
 
@@ -25,27 +29,54 @@ def test_stepping_promotion_metrics_ignore_empty_episodes():
     torch.testing.assert_close(alternation_rate, torch.tensor(0.75))
 
 
-def test_stage_two_blend_ramps_after_promotion():
-    """Stage-two rewards must turn on smoothly after promotion."""
-    assert stage_two_blend(100, promotion_step=-1, transition_steps=100) == 0.0
-    assert stage_two_blend(100, promotion_step=100, transition_steps=100) == 0.0
-    assert stage_two_blend(150, promotion_step=100, transition_steps=100) == 0.5
-    assert stage_two_blend(250, promotion_step=100, transition_steps=100) == 1.0
+def test_stage_two_blend_tracks_performance_instead_of_elapsed_steps():
+    common = {
+        "survival_ratio": 0.8,
+        "survival_ratio_threshold": 0.6,
+        "minimum_alternation_frequency": 1.0,
+        "maximum_alternation_frequency": 2.0,
+        "frequency_tolerance": 0.5,
+    }
+
+    assert stepping_performance_blend(alternation_frequency=1.5, **common) == 1.0
+    assert 0.0 < stepping_performance_blend(alternation_frequency=0.5, **common) < 1.0
+    assert stepping_performance_blend(alternation_frequency=0.0, **(common | {"survival_ratio": 0.0})) == 0.0
+    assert stepping_performance_blend(alternation_frequency=1.5, **(common | {"survival_ratio": 0.59})) == 0.0
+
+
+def test_stability_progress_scales_stage_one_shaping_without_elapsed_time():
+    assert stability_progress(0.0, 0.6) == 0.0
+    assert stability_progress(0.3, 0.6) == 0.5
+    assert stability_progress(0.6, 0.6) == 1.0
+    assert stability_progress(0.9, 0.6) == 1.0
+
+
+def test_frequency_control_ramps_only_after_basic_stability():
+    assert frequency_control_progress(0.2, 0.3, 0.6) == 0.0
+    assert frequency_control_progress(0.3, 0.3, 0.6) == 0.0
+    assert math.isclose(frequency_control_progress(0.45, 0.3, 0.6), 0.5)
+    assert frequency_control_progress(0.6, 0.3, 0.6) == 1.0
 
 
 def test_promotion_requires_frequency_inside_one_to_two_hertz():
     """Stable but too-slow or too-fast stepping must remain in stage one."""
     common = {
-        "common_step_counter": 5_000,
-        "minimum_training_steps": 5_000,
         "survival_ratio": 0.8,
         "survival_ratio_threshold": 0.6,
         "minimum_alternation_frequency": 1.0,
         "maximum_alternation_frequency": 2.0,
     }
 
-    assert not meets_stepping_promotion_gate(alternation_frequency=0.9, **common)
-    assert meets_stepping_promotion_gate(alternation_frequency=1.0, **common)
-    assert meets_stepping_promotion_gate(alternation_frequency=1.5, **common)
-    assert meets_stepping_promotion_gate(alternation_frequency=2.0, **common)
-    assert not meets_stepping_promotion_gate(alternation_frequency=2.1, **common)
+    assert not meets_stepping_performance_gate(alternation_frequency=0.9, **common)
+    assert meets_stepping_performance_gate(alternation_frequency=1.0, **common)
+    assert meets_stepping_performance_gate(alternation_frequency=1.5, **common)
+    assert meets_stepping_performance_gate(alternation_frequency=2.0, **common)
+    assert not meets_stepping_performance_gate(alternation_frequency=2.1, **common)
+
+
+def test_stage_two_blend_falls_when_cadence_leaves_target_band():
+    in_band = stepping_performance_blend(0.8, 0.6, 1.5, 1.0, 2.0, 0.5)
+    too_fast = stepping_performance_blend(0.8, 0.6, 3.0, 1.0, 2.0, 0.5)
+
+    assert in_band == 1.0
+    assert too_fast < in_band

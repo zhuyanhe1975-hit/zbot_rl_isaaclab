@@ -13,6 +13,13 @@ import torch
 from isaaclab.managers import ManagerTermBase, RewardTermCfg, SceneEntityCfg
 from isaaclab.utils.math import quat_apply_inverse
 
+from .observations import (
+    selected_body_ang_vel_b,
+    selected_body_lin_vel_b,
+    support_foot_planar_distances,
+    wrapped_heading_error,
+)
+
 if TYPE_CHECKING:
     from isaaclab.assets import Articulation, RigidObject
     from isaaclab.envs import ManagerBasedRLEnv
@@ -27,6 +34,37 @@ def body_forward_velocity(
     asset_cfg = SceneEntityCfg("robot") if asset_cfg is None else asset_cfg
     asset: RigidObject = env.scene[asset_cfg.name]
     return asset.data.root_lin_vel_b.torch[:, 0]
+
+
+def world_forward_velocity(
+    env: ManagerBasedRLEnv,
+    asset_cfg: SceneEntityCfg | None = None,
+) -> torch.Tensor:
+    """Reward linear velocity along the fixed world ``+X`` direction [m/s]."""
+    asset_cfg = SceneEntityCfg("robot") if asset_cfg is None else asset_cfg
+    asset: RigidObject = env.scene[asset_cfg.name]
+    return asset.data.root_lin_vel_w.torch[:, 0]
+
+
+def heading_error_l2(
+    env: ManagerBasedRLEnv,
+    target_heading: float = 0.0,
+    asset_cfg: SceneEntityCfg | None = None,
+) -> torch.Tensor:
+    """Penalize squared deviation from the target world-frame heading [rad^2]."""
+    asset_cfg = SceneEntityCfg("robot") if asset_cfg is None else asset_cfg
+    asset: RigidObject = env.scene[asset_cfg.name]
+    return torch.square(wrapped_heading_error(asset.data.heading_w.torch, target_heading))
+
+
+def yaw_rate_l2(
+    env: ManagerBasedRLEnv,
+    asset_cfg: SceneEntityCfg | None = None,
+) -> torch.Tensor:
+    """Penalize squared world-frame yaw rate [rad^2/s^2]."""
+    asset_cfg = SceneEntityCfg("robot") if asset_cfg is None else asset_cfg
+    asset: RigidObject = env.scene[asset_cfg.name]
+    return torch.square(asset.data.root_ang_vel_w.torch[:, 2])
 
 
 def body_lateral_velocity_l2(
@@ -47,6 +85,74 @@ def body_horizontal_velocity_l2(
     asset_cfg = SceneEntityCfg("robot") if asset_cfg is None else asset_cfg
     asset: RigidObject = env.scene[asset_cfg.name]
     return torch.sum(torch.square(asset.data.root_lin_vel_b.torch[:, :2]), dim=1)
+
+
+def selected_body_lin_vel_z_l2(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg) -> torch.Tensor:
+    """Penalize one selected body's vertical velocity in its own frame."""
+    return torch.square(selected_body_lin_vel_b(env, asset_cfg)[:, 2])
+
+
+def selected_body_ang_vel_xy_l2(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg) -> torch.Tensor:
+    """Penalize one selected body's roll and pitch angular velocities in its own frame."""
+    return torch.sum(torch.square(selected_body_ang_vel_b(env, asset_cfg)[:, :2]), dim=1)
+
+
+def ideal_support_foot_distance_score(
+    ideal_distance: torch.Tensor,
+    other_distance: torch.Tensor,
+) -> torch.Tensor:
+    """Return normalized other-minus-ideal distance reward in ``[-1, 1]``."""
+    if ideal_distance.shape != other_distance.shape:
+        raise ValueError("Ideal and non-ideal support-foot distances must have matching shapes.")
+    return (other_distance - ideal_distance) / (ideal_distance + other_distance).clamp_min(1.0e-6)
+
+
+def ideal_support_foot_distance_reward(
+    env: ManagerBasedRLEnv,
+    asset_cfg: SceneEntityCfg,
+    command_name: str,
+) -> torch.Tensor:
+    """Reward moving the COM ground projection toward the ideal support foot."""
+    distances = support_foot_planar_distances(env, asset_cfg, command_name)
+    return ideal_support_foot_distance_score(distances[:, 0], distances[:, 1])
+
+
+def commanded_support_force_contrast_score(
+    foot_force_magnitudes: torch.Tensor,
+    target_side: torch.Tensor,
+    minimum_total_force: float,
+) -> torch.Tensor:
+    """Return normalized ideal-minus-swing foot force in ``[-1, 1]``."""
+    if foot_force_magnitudes.shape[1:] != (2,) or target_side.shape != foot_force_magnitudes.shape[:1]:
+        raise ValueError("Foot forces must have shape (num_envs, 2) and target side shape (num_envs,).")
+    if minimum_total_force <= 0.0:
+        raise ValueError("Minimum total foot force must be positive.")
+    target_index = torch.where(target_side > 0.0, 0, 1)
+    swing_index = 1 - target_index
+    environment_index = torch.arange(target_side.shape[0], device=target_side.device)
+    target_force = foot_force_magnitudes[environment_index, target_index]
+    swing_force = foot_force_magnitudes[environment_index, swing_index]
+    total_force = target_force + swing_force
+    contrast = (target_force - swing_force) / total_force.clamp_min(minimum_total_force)
+    return torch.where(total_force >= minimum_total_force, contrast, -1.0)
+
+
+def commanded_support_force_contrast(
+    env: ManagerBasedRLEnv,
+    sensor_cfg: SceneEntityCfg,
+    command_name: str,
+    minimum_total_force: float,
+) -> torch.Tensor:
+    """Densely reward loading the ideal support foot over the swing foot."""
+    if isinstance(sensor_cfg.body_ids, slice) or len(sensor_cfg.body_ids) != 2:
+        raise ValueError("Support-foot contact reward requires exactly two foot contact sensors.")
+    sensor = cast("ContactSensor", env.scene.sensors[sensor_cfg.name])
+    normal_forces_w = sensor.data.net_normal_forces_w
+    if normal_forces_w is None:
+        raise RuntimeError("Contact sensor must provide normal forces for support-foot contact reward.")
+    forces = normal_forces_w.torch[:, sensor_cfg.body_ids].norm(dim=-1)
+    target_side = env.command_manager.get_command(command_name)[:, 0]
+    return commanded_support_force_contrast_score(forces, target_side, minimum_total_force)
 
 
 def compute_single_support_foot_height_difference_l2(
@@ -112,6 +218,31 @@ def frequency_band_score(
     return torch.exp(-torch.square(distance_to_band / tolerance))
 
 
+def frequency_band_error_l2(
+    frequency: torch.Tensor,
+    minimum_frequency: float,
+    maximum_frequency: float,
+) -> torch.Tensor:
+    """Return squared distance from a target frequency band in Hz squared."""
+    if minimum_frequency <= 0.0 or maximum_frequency < minimum_frequency:
+        raise ValueError("Frequency bounds must satisfy 0 < minimum <= maximum.")
+    distance_below = (minimum_frequency - frequency).clamp_min(0.0)
+    distance_above = (frequency - maximum_frequency).clamp_min(0.0)
+    return torch.square(distance_below + distance_above)
+
+
+def frequency_above_band_error_l2(frequency: torch.Tensor, maximum_frequency: float) -> torch.Tensor:
+    """Return squared frequency excess above a maximum without penalizing slow exploration."""
+    if maximum_frequency <= 0.0:
+        raise ValueError("Maximum frequency must be positive.")
+    return torch.square((frequency - maximum_frequency).clamp_min(0.0))
+
+
+def time_normalize_frequency_event_metric(metric: torch.Tensor, interval: torch.Tensor) -> torch.Tensor:
+    """Scale an event metric by its interval so event count does not increase reward per unit time."""
+    return metric * interval
+
+
 def foot_relative_position_x(
     foot_positions_w: torch.Tensor,
     root_quat_w: torch.Tensor,
@@ -161,21 +292,17 @@ class AlternatingFeetTouchdownReward(ManagerTermBase):
     def __init__(self, cfg: RewardTermCfg, env: ManagerBasedRLEnv) -> None:
         super().__init__(cfg, env)
         sensor_cfg: SceneEntityCfg = cfg.params["sensor_cfg"]
-        asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
         if isinstance(sensor_cfg.body_ids, slice) or len(sensor_cfg.body_ids) != 2:
             raise ValueError("Alternating touchdown reward requires exactly two resolved foot bodies.")
-        if isinstance(asset_cfg.body_ids, slice) or len(asset_cfg.body_ids) != 2:
-            raise ValueError("Alternating touchdown reward requires exactly two articulation foot bodies.")
         self._foot_body_ids = sensor_cfg.body_ids
-        self._asset_foot_ids = asset_cfg.body_ids
         self._contact_sensor = cast("ContactSensor", env.scene.sensors[sensor_cfg.name])
-        self._asset = cast("Articulation", env.scene[asset_cfg.name])
         self._last_landing_foot = torch.full((env.num_envs,), -1, dtype=torch.long, device=env.device)
-        self._was_behind = torch.zeros(env.num_envs, 2, dtype=torch.bool, device=env.device)
         self._episode_alternations = torch.zeros(env.num_envs, device=env.device)
         self._time_since_alternation = torch.zeros(env.num_envs, device=env.device)
         self._has_previous_alternation = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
         self._frequency_score = torch.zeros(env.num_envs, device=env.device)
+        self._frequency_error_l2 = torch.zeros(env.num_envs, device=env.device)
+        self._frequency_excess_l2 = torch.zeros(env.num_envs, device=env.device)
 
     @property
     def last_landing_foot(self) -> torch.Tensor:
@@ -192,52 +319,47 @@ class AlternatingFeetTouchdownReward(ManagerTermBase):
         """Score for the latest valid alternating-step frequency event."""
         return self._frequency_score
 
+    @property
+    def frequency_error_l2(self) -> torch.Tensor:
+        """Squared distance of the latest alternating event from the target frequency band."""
+        return self._frequency_error_l2
+
+    @property
+    def frequency_excess_l2(self) -> torch.Tensor:
+        """Squared excess of the latest alternating event above the maximum target frequency."""
+        return self._frequency_excess_l2
+
     def reset(self, env_ids: Sequence[int] | torch.Tensor | slice | None = None) -> None:
         """Clear touchdown history for selected environments."""
         selected = slice(None) if env_ids is None else env_ids
         self._last_landing_foot[selected] = -1
-        self._was_behind[selected] = False
         self._episode_alternations[selected] = 0.0
         self._time_since_alternation[selected] = 0.0
         self._has_previous_alternation[selected] = False
         self._frequency_score[selected] = 0.0
+        self._frequency_error_l2[selected] = 0.0
+        self._frequency_excess_l2[selected] = 0.0
 
     def __call__(
         self,
         env: ManagerBasedRLEnv,
         sensor_cfg: SceneEntityCfg,
-        asset_cfg: SceneEntityCfg,
         minimum_air_time: float,
         force_threshold: float,
-        crossing_margin: float,
         minimum_frequency: float,
         maximum_frequency: float,
         frequency_tolerance: float,
     ) -> torch.Tensor:
         """Return one for a valid alternating touchdown and zero otherwise."""
         last_air_time = self._contact_sensor.data.last_air_time
-        current_air_time = self._contact_sensor.data.current_air_time
         normal_force_history = self._contact_sensor.data.net_normal_forces_w_history
-        if last_air_time is None or current_air_time is None or normal_force_history is None:
+        if last_air_time is None or normal_force_history is None:
             raise RuntimeError("Contact sensor must enable air-time tracking for alternating touchdowns.")
 
         first_contact = self._contact_sensor.compute_first_contact(env.step_dt).torch[:, self._foot_body_ids].bool()
         air_time = last_air_time.torch[:, self._foot_body_ids]
         contact_force = normal_force_history.torch[:, :, self._foot_body_ids, :].norm(dim=-1).max(dim=1)[0]
         valid_touchdown = first_contact & (air_time >= minimum_air_time) & (contact_force >= force_threshold)
-        relative_position_x = foot_relative_position_x(
-            self._asset.data.body_pos_w.torch[:, self._asset_foot_ids],
-            self._asset.data.root_quat_w.torch,
-        )
-        valid_touchdown, updated_was_behind = update_crossing_touchdown_state(
-            relative_position_x,
-            current_air_time.torch[:, self._foot_body_ids] > 0.0,
-            first_contact,
-            valid_touchdown,
-            self._was_behind,
-            crossing_margin,
-        )
-        self._was_behind.copy_(updated_was_behind)
         reward, updated_history = update_alternating_touchdown_state(
             valid_touchdown,
             self._last_landing_foot,
@@ -247,14 +369,22 @@ class AlternatingFeetTouchdownReward(ManagerTermBase):
         self._time_since_alternation += env.step_dt
         alternating_event = reward > 0.0
         has_interval = alternating_event & self._has_previous_alternation
-        frequency = torch.reciprocal(self._time_since_alternation.clamp_min(env.step_dt))
+        interval = self._time_since_alternation.clamp_min(env.step_dt)
+        frequency = torch.reciprocal(interval)
         score = frequency_band_score(
             frequency,
             minimum_frequency,
             maximum_frequency,
             frequency_tolerance,
         )
-        self._frequency_score.copy_(torch.where(has_interval, score, 0.0))
+        normalized_score = time_normalize_frequency_event_metric(score, interval)
+        self._frequency_score.copy_(torch.where(has_interval, normalized_score, 0.0))
+        frequency_error = frequency_band_error_l2(frequency, minimum_frequency, maximum_frequency)
+        normalized_error = time_normalize_frequency_event_metric(frequency_error, interval)
+        self._frequency_error_l2.copy_(torch.where(has_interval, normalized_error, 0.0))
+        frequency_excess = frequency_above_band_error_l2(frequency, maximum_frequency)
+        normalized_excess = time_normalize_frequency_event_metric(frequency_excess, interval)
+        self._frequency_excess_l2.copy_(torch.where(has_interval, normalized_excess, 0.0))
         self._has_previous_alternation |= alternating_event
         self._time_since_alternation[alternating_event] = 0.0
         return reward
@@ -268,6 +398,26 @@ def alternating_step_frequency_score(
     term_cfg = env.reward_manager.get_term_cfg(reward_term_name)
     reward_term = cast(AlternatingFeetTouchdownReward, term_cfg.func)
     return reward_term.frequency_score
+
+
+def alternating_step_frequency_error_l2(
+    env: ManagerBasedRLEnv,
+    reward_term_name: str,
+) -> torch.Tensor:
+    """Return the latest event's squared distance from the target frequency band."""
+    term_cfg = env.reward_manager.get_term_cfg(reward_term_name)
+    reward_term = cast(AlternatingFeetTouchdownReward, term_cfg.func)
+    return reward_term.frequency_error_l2
+
+
+def alternating_step_frequency_excess_l2(
+    env: ManagerBasedRLEnv,
+    reward_term_name: str,
+) -> torch.Tensor:
+    """Return squared excess above the maximum target frequency for the latest event."""
+    term_cfg = env.reward_manager.get_term_cfg(reward_term_name)
+    reward_term = cast(AlternatingFeetTouchdownReward, term_cfg.func)
+    return reward_term.frequency_excess_l2
 
 
 class StepLengthReward(ManagerTermBase):

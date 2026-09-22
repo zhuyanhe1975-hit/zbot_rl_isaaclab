@@ -13,6 +13,14 @@ import zbot_rl_isaaclab.tasks  # noqa: F401
 def test_task_registrations():
     """The generated tasks must expose valid environment and agent entry points."""
     expected = {
+        "ZbotRlIsaaclab-6DOF-Base": {
+            "entry_point": "isaaclab.envs:ManagerBasedRLEnv",
+            "env_cfg_entry_point": "zbot_rl_isaaclab.tasks.velocity.config.zbot_6dof_base.env_cfg:BaseEnvCfg",
+            "default_agent": "rsl_rl",
+            "rsl_rl_cfg_entry_point": (
+                "zbot_rl_isaaclab.tasks.velocity.config.zbot_6dof_base.agents.rsl_rl_ppo_cfg:PPORunnerCfg"
+            ),
+        },
         "ZbotRlIsaaclab-Velocity-Zbot-6DOF": {
             "entry_point": "isaaclab.envs:ManagerBasedRLEnv",
             "env_cfg_entry_point": "zbot_rl_isaaclab.tasks.velocity.config.zbot_6dof.env_cfg:VelocityEnvCfg",

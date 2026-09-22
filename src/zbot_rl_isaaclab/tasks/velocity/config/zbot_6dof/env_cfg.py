@@ -36,17 +36,21 @@ from zbot_rl_isaaclab.assets import ZBOT_6DOF_CFG
 
 from ...mdp.actions_cfg import VelocityIntegratedJointPositionActionCfg
 from ...mdp.curriculums import TwoStageWalkingCurriculum
-from ...mdp.observations import joint_velocity_limit
+from ...mdp.observations import body_height_above_ground, foot_contacts, heading_error, joint_velocity_limit
 from ...mdp.rewards import (
     AlternatingFeetTouchdownReward,
     StepLengthReward,
+    alternating_step_frequency_error_l2,
+    alternating_step_frequency_excess_l2,
     alternating_step_frequency_score,
-    body_forward_velocity,
     body_horizontal_velocity_l2,
     body_lateral_velocity_l2,
+    heading_error_l2,
     single_support_foot_height_difference_l2,
+    world_forward_velocity,
+    yaw_rate_l2,
 )
-from ...mdp.terminations import body_height_below_minimum
+from ...mdp.terminations import body_height_below_minimum, heading_deviation_above_limit
 
 
 @configclass
@@ -129,6 +133,23 @@ class ObservationsCfg:
         base_lin_vel = ObsTerm(func=base_mdp.base_lin_vel, noise=Unoise(n_min=-0.05, n_max=0.05))
         base_ang_vel = ObsTerm(func=base_mdp.base_ang_vel, noise=Unoise(n_min=-0.1, n_max=0.1))
         projected_gravity = ObsTerm(func=base_mdp.projected_gravity, noise=Unoise(n_min=-0.03, n_max=0.03))
+        heading_error = ObsTerm(
+            func=heading_error,
+            params={"target_heading": 0.0},
+            noise=Unoise(n_min=-0.01, n_max=0.01),
+        )
+        base_height = ObsTerm(
+            func=body_height_above_ground,
+            params={"asset_cfg": SceneEntityCfg("robot", body_names="base")},
+            noise=Unoise(n_min=-0.005, n_max=0.005),
+        )
+        foot_contacts = ObsTerm(
+            func=foot_contacts,
+            params={
+                "sensor_cfg": SceneEntityCfg("contact_forces", body_names="foot_.*"),
+                "force_threshold": 10.0,
+            },
+        )
         joint_pos = ObsTerm(func=base_mdp.joint_pos_rel, noise=Unoise(n_min=-0.01, n_max=0.01))
         joint_vel = ObsTerm(func=base_mdp.joint_vel_rel, noise=Unoise(n_min=-0.1, n_max=0.1))
         actions = ObsTerm(func=base_mdp.last_action)
@@ -179,12 +200,18 @@ class RewardsCfg:
     """Compact walking objective based on maintained locomotion terms."""
 
     body_forward_speed = RewTerm(
-        func=body_forward_velocity,
+        func=world_forward_velocity,
         weight=0.0,
     )
     alive = RewTerm(func=base_mdp.is_alive, weight=0.2)
-    termination_penalty = RewTerm(func=base_mdp.is_terminated, weight=-5.0)
+    # RewardManager multiplies weights by step_dt=0.02, so -50 yields a -1.0
+    # terminal cost instead of the previous weak -0.2 signal.
+    termination_penalty = RewTerm(func=base_mdp.is_terminated, weight=-50.0)
     body_lateral_vel_l2 = RewTerm(func=body_lateral_velocity_l2, weight=-1.0)
+    heading_error_l2 = RewTerm(func=heading_error_l2, weight=-5.0, params={"target_heading": 0.0})
+    yaw_rate_l2 = RewTerm(func=yaw_rate_l2, weight=-0.2)
+    flat_orientation_l2 = RewTerm(func=base_mdp.flat_orientation_l2, weight=-2.0)
+    ang_vel_xy_l2 = RewTerm(func=base_mdp.ang_vel_xy_l2, weight=-0.05)
     stage_one_horizontal_velocity_l2 = RewTerm(func=body_horizontal_velocity_l2, weight=-2.0)
     single_support_foot_height_l2 = RewTerm(
         func=single_support_foot_height_difference_l2,
@@ -202,13 +229,13 @@ class RewardsCfg:
     joint_deviation = RewTerm(func=base_mdp.joint_deviation_l1, weight=-0.1)
     alternating_touchdown = RewTerm(
         func=AlternatingFeetTouchdownReward,  # pyright: ignore[reportArgumentType]
-        weight=10.0,
+        # Stateful detector only. A non-zero sentinel keeps it updating for the
+        # frequency-band reward without rewarding touchdown count.
+        weight=1.0e-6,
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names="foot_.*"),
-            "asset_cfg": SceneEntityCfg("robot", body_names="foot_.*"),
             "minimum_air_time": 0.05,
             "force_threshold": 10.0,
-            "crossing_margin": 0.0,
             "minimum_frequency": 1.0,
             "maximum_frequency": 2.0,
             "frequency_tolerance": 0.5,
@@ -217,6 +244,16 @@ class RewardsCfg:
     stage_one_step_frequency = RewTerm(
         func=alternating_step_frequency_score,
         weight=5.0,
+        params={"reward_term_name": "alternating_touchdown"},
+    )
+    step_frequency_error_l2 = RewTerm(
+        func=alternating_step_frequency_error_l2,
+        weight=0.0,
+        params={"reward_term_name": "alternating_touchdown"},
+    )
+    step_frequency_excess_l2 = RewTerm(
+        func=alternating_step_frequency_excess_l2,
+        weight=0.0,
         params={"reward_term_name": "alternating_touchdown"},
     )
     step_length = RewTerm(
@@ -273,6 +310,14 @@ class TerminationsCfg:
             "minimum_height": 0.18,
         },
     )
+    heading_deviation = DoneTerm(
+        func=heading_deviation_above_limit,
+        params={
+            "maximum_deviation": math.pi / 4.0,
+            "target_heading": 0.0,
+            "asset_cfg": SceneEntityCfg("robot"),
+        },
+    )
 
 
 @configclass
@@ -282,14 +327,21 @@ class CurriculumCfg:
     walking_stages = CurrTerm(
         func=TwoStageWalkingCurriculum,  # pyright: ignore[reportArgumentType]
         params={
-            "minimum_training_steps": 5_000,
             "survival_ratio_threshold": 0.60,
             "minimum_alternation_frequency": 1.0,
             "maximum_alternation_frequency": 2.0,
+            "frequency_tolerance": 0.5,
+            "frequency_control_survival_start": 0.30,
             "ema_alpha": 0.10,
-            "transition_steps": 5_000,
             "stage_one_velocity_weight": -2.0,
-            "stage_one_frequency_weight": 5.0,
+            "touchdown_state_weight": 1.0e-6,
+            "stage_one_frequency_initial_weight": 5.0,
+            "stage_one_frequency_weight": 30.0,
+            "stage_two_frequency_weight": 30.0,
+            "stage_one_frequency_error_weight": 0.0,
+            "stage_two_frequency_error_weight": -1.0,
+            "stage_one_frequency_excess_weight": -0.25,
+            "stage_two_frequency_excess_weight": 0.0,
             "forward_speed_weight": 3.0,
             "step_length_weight": 50.0,
             "step_length_asymmetry_weight": -25.0,
