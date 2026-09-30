@@ -26,6 +26,16 @@ def wrapped_heading_error(heading_w: torch.Tensor, target_heading: float = 0.0) 
     return torch.atan2(torch.sin(error), torch.cos(error))
 
 
+def selected_body_heading_w(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg) -> torch.Tensor:
+    """Return one selected body's world-frame yaw angle [rad]."""
+    if isinstance(asset_cfg.body_ids, slice) or len(asset_cfg.body_ids) != 1:
+        raise ValueError("Body heading requires exactly one selected rigid body.")
+    asset: Articulation = env.scene[asset_cfg.name]
+    quaternion = asset.data.body_quat_w.torch[:, asset_cfg.body_ids[0]]
+    x, y, z, w = quaternion.unbind(dim=-1)
+    return torch.atan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
+
+
 def heading_error(
     env: ManagerBasedEnv,
     target_heading: float = 0.0,
@@ -34,7 +44,11 @@ def heading_error(
     """Return the robot's signed heading error as a one-dimensional policy observation."""
     asset_cfg = SceneEntityCfg("robot") if asset_cfg is None else asset_cfg
     asset: Articulation = env.scene[asset_cfg.name]
-    return wrapped_heading_error(asset.data.heading_w.torch, target_heading).unsqueeze(-1)
+    if isinstance(asset_cfg.body_ids, slice):
+        heading_w = asset.data.heading_w.torch
+    else:
+        heading_w = selected_body_heading_w(env, asset_cfg)
+    return wrapped_heading_error(heading_w, target_heading).unsqueeze(-1)
 
 
 def body_height_above_ground(
@@ -80,6 +94,7 @@ def support_foot_planar_distances(
     env: ManagerBasedRLEnv,
     asset_cfg: SceneEntityCfg,
     command_name: str,
+    command_index: int = 0,
 ) -> torch.Tensor:
     """Return COM planar distances to the ideal and non-ideal support feet [m]."""
     if isinstance(asset_cfg.body_ids, slice) or len(asset_cfg.body_ids) != 2:
@@ -87,7 +102,7 @@ def support_foot_planar_distances(
     asset: Articulation = env.scene[asset_cfg.name]
     center_of_mass_w = whole_body_center_of_mass(asset.data.body_com_pos_w.torch, asset.data.body_mass.torch)
     feet_w = asset.data.body_pos_w.torch[:, asset_cfg.body_ids]
-    target_side = env.command_manager.get_command(command_name)[:, 0]
+    target_side = env.command_manager.get_command(command_name)[:, command_index]
     target_index = torch.where(target_side > 0.0, 0, 1)
     other_index = 1 - target_index
     environment_index = torch.arange(center_of_mass_w.shape[0], device=center_of_mass_w.device)
@@ -121,9 +136,10 @@ def ideal_support_foot_normalized_distance_error(
     env: ManagerBasedRLEnv,
     asset_cfg: SceneEntityCfg,
     command_name: str,
+    command_index: int = 0,
 ) -> torch.Tensor:
     """Return normalized COM planar-distance error for the commanded support foot."""
-    distances = support_foot_planar_distances(env, asset_cfg, command_name)
+    distances = support_foot_planar_distances(env, asset_cfg, command_name, command_index)
     error = normalized_support_foot_distance_error(distances[:, 0], distances[:, 1])
     return error.unsqueeze(-1)
 

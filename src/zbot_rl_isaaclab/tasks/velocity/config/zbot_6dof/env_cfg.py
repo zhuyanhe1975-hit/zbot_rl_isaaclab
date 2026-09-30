@@ -10,7 +10,6 @@ import isaaclab.envs.mdp as base_mdp
 import isaaclab.sim as sim_utils
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg
 from isaaclab.envs import ManagerBasedRLEnvCfg
-from isaaclab.managers import CurriculumTermCfg as CurrTerm
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
@@ -25,7 +24,7 @@ from isaaclab.sim.spawners.materials import RigidBodyMaterialBaseCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.noise import UniformNoiseCfg as Unoise
 from isaaclab.visualizers import VisualizerCfg
-from isaaclab_newton.physics import KaminoPADMMSolverCfg, MJWarpSolverCfg, NewtonCfg
+from isaaclab_newton.physics import KaminoPADMMSolverCfg, MJWarpSolverCfg, NewtonCfg, NewtonShapeCfg
 from isaaclab_ov.physics import OvPhysxCfg
 from isaaclab_physx.physics import PhysxCfg
 
@@ -35,8 +34,17 @@ from isaaclab_tasks.utils import PresetCfg
 from zbot_rl_isaaclab.assets import ZBOT_6DOF_CFG
 
 from ...mdp.actions_cfg import VelocityIntegratedJointPositionActionCfg
-from ...mdp.curriculums import TwoStageWalkingCurriculum
-from ...mdp.observations import body_height_above_ground, foot_contacts, heading_error, joint_velocity_limit
+from ...mdp.observations import (
+    body_height_above_ground,
+    center_of_mass_relative_to_feet,
+    foot_contact_forces,
+    foot_contacts,
+    heading_error,
+    joint_velocity_limit,
+    selected_body_ang_vel_b,
+    selected_body_lin_vel_b,
+    selected_body_projected_gravity,
+)
 from ...mdp.rewards import (
     AlternatingFeetTouchdownReward,
     StepLengthReward,
@@ -46,11 +54,13 @@ from ...mdp.rewards import (
     body_horizontal_velocity_l2,
     body_lateral_velocity_l2,
     heading_error_l2,
+    selected_body_ang_vel_xy_l2,
+    selected_body_flat_orientation_l2,
     single_support_foot_height_difference_l2,
     world_forward_velocity,
     yaw_rate_l2,
 )
-from ...mdp.terminations import body_height_below_minimum, heading_deviation_above_limit
+from ...mdp.terminations import body_height_below_minimum
 
 
 @configclass
@@ -64,13 +74,22 @@ class VelocityPhysicsCfg(PresetCfg):
         solver_cfg=MJWarpSolverCfg(
             njmax=144,
             nconmax=36,
-            cone="pyramidal",
-            impratio=1.0,
+            ls_iterations=75,
+            cone="elliptic",
+            impratio=100.0,
             integrator="implicitfast",
+            enable_multiccd=True,
         ),
         num_substeps=2,
         debug_mode=False,
         use_cuda_graph=True,
+        default_shape_cfg=NewtonShapeCfg(
+            margin=0.0,
+            gap=0.001,
+            ke=5.0e4,
+            kd=5.0e2,
+            mu=1.0,
+        ),
     )
     newton_kamino: NewtonCfg = NewtonCfg(
         solver_cfg=KaminoPADMMSolverCfg(sparse_jacobian=True),
@@ -90,13 +109,15 @@ class VelocitySceneCfg(InteractiveSceneCfg):
             size=(100.0, 100.0),
             physics_material=RigidBodyMaterialBaseCfg(
                 static_friction=1.0,
-                dynamic_friction=0.8,
+                dynamic_friction=1.0,
                 restitution=0.0,
             ),
         ),
     )
     robot: ArticulationCfg = copy.deepcopy(ZBOT_6DOF_CFG)
     robot.prim_path = "{ENV_REGEX_NS}/Robot"
+    robot.actuators["legs"].actuator_velocity_limit = 2.0 * math.pi
+    robot.actuators["legs"].joint_velocity_limit = 2.0 * math.pi
     contact_forces = ContactSensorCfg(
         prim_path="{ENV_REGEX_NS}/Robot/[^/]*",
         update_period=0.0,
@@ -117,8 +138,8 @@ class ActionsCfg:
         asset_name="robot",
         joint_names=["joint1", "joint2", "joint3", "joint4", "joint5", "joint6"],
         preserve_order=True,
-        velocity_limit_range=(0.2 * math.pi, 2.0 * math.pi),
-        position_offset_limit=math.pi,
+        velocity_limit_range=(2.0 * math.pi, 2.0 * math.pi),
+        position_offset_limit=0.5 * math.pi,
     )
 
 
@@ -128,14 +149,52 @@ class ObservationsCfg:
 
     @configclass
     class PolicyCfg(ObsGroup):
-        """Low-dimensional proprioceptive observation group."""
+        """Walking observations with a balance-prior-compatible 39-value prefix."""
 
-        base_lin_vel = ObsTerm(func=base_mdp.base_lin_vel, noise=Unoise(n_min=-0.05, n_max=0.05))
-        base_ang_vel = ObsTerm(func=base_mdp.base_ang_vel, noise=Unoise(n_min=-0.1, n_max=0.1))
-        projected_gravity = ObsTerm(func=base_mdp.projected_gravity, noise=Unoise(n_min=-0.03, n_max=0.03))
+        # Keep this prefix in lockstep with the balance task. The walking actor prior copies these
+        # first-layer columns by semantic slice rather than by an unsafe raw tensor prefix.
+        base_lin_vel = ObsTerm(
+            func=selected_body_lin_vel_b,
+            params={"asset_cfg": SceneEntityCfg("robot", body_names="base")},
+            noise=Unoise(n_min=-0.05, n_max=0.05),
+        )
+        base_ang_vel = ObsTerm(
+            func=selected_body_ang_vel_b,
+            params={"asset_cfg": SceneEntityCfg("robot", body_names="base")},
+            noise=Unoise(n_min=-0.1, n_max=0.1),
+        )
+        projected_gravity = ObsTerm(
+            func=selected_body_projected_gravity,
+            params={"asset_cfg": SceneEntityCfg("robot", body_names="base")},
+            noise=Unoise(n_min=-0.03, n_max=0.03),
+        )
+        joint_pos = ObsTerm(func=base_mdp.joint_pos_rel, noise=Unoise(n_min=-0.01, n_max=0.01))
+        joint_vel = ObsTerm(func=base_mdp.joint_vel_rel, noise=Unoise(n_min=-0.1, n_max=0.1))
+        actions = ObsTerm(func=base_mdp.last_action)
+        foot_contact_forces = ObsTerm(
+            func=foot_contact_forces,
+            params={
+                "sensor_cfg": SceneEntityCfg("contact_forces", body_names="foot_.*"),
+                "body_cfg": SceneEntityCfg("robot", body_names="base"),
+            },
+            scale=0.01,
+        )
+        com_relative_to_feet = ObsTerm(
+            func=center_of_mass_relative_to_feet,
+            params={
+                "asset_cfg": SceneEntityCfg("robot", body_names="foot_.*"),
+                "body_cfg": SceneEntityCfg("robot", body_names="base"),
+            },
+        )
+
+        # Walking-only suffix. Its first-layer prior weights start at zero and learn from the
+        # walking rewards; no balance feature is silently reinterpreted as one of these signals.
         heading_error = ObsTerm(
             func=heading_error,
-            params={"target_heading": 0.0},
+            params={
+                "target_heading": 0.0,
+                "asset_cfg": SceneEntityCfg("robot", body_names="base"),
+            },
             noise=Unoise(n_min=-0.01, n_max=0.01),
         )
         base_height = ObsTerm(
@@ -150,9 +209,6 @@ class ObservationsCfg:
                 "force_threshold": 10.0,
             },
         )
-        joint_pos = ObsTerm(func=base_mdp.joint_pos_rel, noise=Unoise(n_min=-0.01, n_max=0.01))
-        joint_vel = ObsTerm(func=base_mdp.joint_vel_rel, noise=Unoise(n_min=-0.1, n_max=0.1))
-        actions = ObsTerm(func=base_mdp.last_action)
         joint_velocity_limit = ObsTerm(
             func=joint_velocity_limit,
             params={"action_name": "joint_pos"},
@@ -201,25 +257,53 @@ class RewardsCfg:
 
     body_forward_speed = RewTerm(
         func=world_forward_velocity,
-        weight=0.0,
+        weight=5.0,
+        params={"asset_cfg": SceneEntityCfg("robot", body_names="base")},
     )
     alive = RewTerm(func=base_mdp.is_alive, weight=0.2)
-    # RewardManager multiplies weights by step_dt=0.02, so -50 yields a -1.0
-    # terminal cost instead of the previous weak -0.2 signal.
-    termination_penalty = RewTerm(func=base_mdp.is_terminated, weight=-50.0)
-    body_lateral_vel_l2 = RewTerm(func=body_lateral_velocity_l2, weight=-1.0)
-    heading_error_l2 = RewTerm(func=heading_error_l2, weight=-5.0, params={"target_heading": 0.0})
-    yaw_rate_l2 = RewTerm(func=yaw_rate_l2, weight=-0.2)
-    flat_orientation_l2 = RewTerm(func=base_mdp.flat_orientation_l2, weight=-2.0)
-    ang_vel_xy_l2 = RewTerm(func=base_mdp.ang_vel_xy_l2, weight=-0.05)
-    stage_one_horizontal_velocity_l2 = RewTerm(func=body_horizontal_velocity_l2, weight=-2.0)
+    # Make early termination decisively worse than accumulating the direct-walking objectives.
+    termination_penalty = RewTerm(func=base_mdp.is_terminated, weight=-200.0)
+    body_lateral_vel_l2 = RewTerm(
+        func=body_lateral_velocity_l2,
+        weight=-1.0,
+        params={"asset_cfg": SceneEntityCfg("robot", body_names="base")},
+    )
+    heading_error_l2 = RewTerm(
+        func=heading_error_l2,
+        weight=-1.0,
+        params={
+            "target_heading": 0.0,
+            "asset_cfg": SceneEntityCfg("robot", body_names="base"),
+        },
+    )
+    yaw_rate_l2 = RewTerm(
+        func=yaw_rate_l2,
+        weight=-0.2,
+        params={"asset_cfg": SceneEntityCfg("robot", body_names="base")},
+    )
+    flat_orientation_l2 = RewTerm(
+        func=selected_body_flat_orientation_l2,
+        weight=0.0,
+        params={"asset_cfg": SceneEntityCfg("robot", body_names="base")},
+    )
+    ang_vel_xy_l2 = RewTerm(
+        func=selected_body_ang_vel_xy_l2,
+        weight=-0.05,
+        params={"asset_cfg": SceneEntityCfg("robot", body_names="base")},
+    )
+    stage_one_horizontal_velocity_l2 = RewTerm(
+        func=body_horizontal_velocity_l2,
+        weight=0.0,
+        params={"asset_cfg": SceneEntityCfg("robot", body_names="base")},
+    )
     single_support_foot_height_l2 = RewTerm(
         func=single_support_foot_height_difference_l2,
-        weight=-20.0,
+        weight=-1.0,
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names="foot_.*"),
             "asset_cfg": SceneEntityCfg("robot", body_names="foot_.*"),
             "force_threshold": 10.0,
+            "maximum_height_difference": 0.05,
         },
     )
     joint_torques_l2 = RewTerm(func=base_mdp.joint_torques_l2, weight=-1.0e-6)
@@ -243,22 +327,22 @@ class RewardsCfg:
     )
     stage_one_step_frequency = RewTerm(
         func=alternating_step_frequency_score,
-        weight=5.0,
+        weight=300.0,
         params={"reward_term_name": "alternating_touchdown"},
     )
     step_frequency_error_l2 = RewTerm(
         func=alternating_step_frequency_error_l2,
-        weight=0.0,
+        weight=-100.0,
         params={"reward_term_name": "alternating_touchdown"},
     )
     step_frequency_excess_l2 = RewTerm(
         func=alternating_step_frequency_excess_l2,
-        weight=0.0,
+        weight=-25.0,
         params={"reward_term_name": "alternating_touchdown"},
     )
     step_length = RewTerm(
         func=StepLengthReward,  # pyright: ignore[reportArgumentType]
-        weight=0.0,
+        weight=100.0,
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names="foot_.*"),
             "asset_cfg": SceneEntityCfg("robot", body_names="foot_.*"),
@@ -270,7 +354,7 @@ class RewardsCfg:
     )
     step_length_asymmetry = RewTerm(
         func=StepLengthReward,  # pyright: ignore[reportArgumentType]
-        weight=0.0,
+        weight=-100.0,
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names="foot_.*"),
             "asset_cfg": SceneEntityCfg("robot", body_names="foot_.*"),
@@ -310,48 +394,11 @@ class TerminationsCfg:
             "minimum_height": 0.18,
         },
     )
-    heading_deviation = DoneTerm(
-        func=heading_deviation_above_limit,
-        params={
-            "maximum_deviation": math.pi / 4.0,
-            "target_heading": 0.0,
-            "asset_cfg": SceneEntityCfg("robot"),
-        },
-    )
-
-
-@configclass
-class CurriculumCfg:
-    """Two-stage curriculum from in-place stepping to fast forward walking."""
-
-    walking_stages = CurrTerm(
-        func=TwoStageWalkingCurriculum,  # pyright: ignore[reportArgumentType]
-        params={
-            "survival_ratio_threshold": 0.60,
-            "minimum_alternation_frequency": 1.0,
-            "maximum_alternation_frequency": 2.0,
-            "frequency_tolerance": 0.5,
-            "frequency_control_survival_start": 0.30,
-            "ema_alpha": 0.10,
-            "stage_one_velocity_weight": -2.0,
-            "touchdown_state_weight": 1.0e-6,
-            "stage_one_frequency_initial_weight": 5.0,
-            "stage_one_frequency_weight": 30.0,
-            "stage_two_frequency_weight": 30.0,
-            "stage_one_frequency_error_weight": 0.0,
-            "stage_two_frequency_error_weight": -1.0,
-            "stage_one_frequency_excess_weight": -0.25,
-            "stage_two_frequency_excess_weight": 0.0,
-            "forward_speed_weight": 3.0,
-            "step_length_weight": 50.0,
-            "step_length_asymmetry_weight": -25.0,
-        },
-    )
 
 
 @configclass
 class VelocityEnvCfg(ManagerBasedRLEnvCfg):
-    """Manager-based flat-ground velocity task for the six-DoF ZBot."""
+    """Direct flat-ground walking task initialized from the balance actor prior."""
 
     sim: SimulationCfg = SimulationCfg(physics=VelocityPhysicsCfg())  # pyright: ignore[reportArgumentType]
     scene: VelocitySceneCfg = VelocitySceneCfg(num_envs=4096, env_spacing=1.0)
@@ -360,7 +407,7 @@ class VelocityEnvCfg(ManagerBasedRLEnvCfg):
     events: EventsCfg = EventsCfg()
     rewards: RewardsCfg = RewardsCfg()
     terminations: TerminationsCfg = TerminationsCfg()
-    curriculum: CurriculumCfg = CurriculumCfg()
+    curriculum = None
 
     def __post_init__(self) -> None:
         """Set simulation timing and visualization defaults."""

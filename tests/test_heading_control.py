@@ -56,3 +56,29 @@ def test_heading_termination_resets_only_beyond_45_degrees():
     )
 
     assert terminated.tolist() == [False, True, True]
+
+
+def test_direction_terms_use_selected_base_body_instead_of_articulation_root():
+    half_yaw = 0.25
+    body_quat = torch.tensor(
+        [
+            [[0.0, 0.0, 0.0, 1.0]],
+            [[0.0, 0.0, math.sin(half_yaw), math.cos(half_yaw)]],
+        ]
+    )
+    data = SimpleNamespace(
+        heading_w=SimpleNamespace(torch=torch.tensor([2.0, 2.0])),
+        root_lin_vel_w=SimpleNamespace(torch=torch.full((2, 3), -10.0)),
+        root_ang_vel_w=SimpleNamespace(torch=torch.full((2, 3), -10.0)),
+        body_quat_w=SimpleNamespace(torch=body_quat),
+        body_lin_vel_w=SimpleNamespace(torch=torch.tensor([[[1.2, 0.0, 0.0]], [[-0.3, 0.0, 0.0]]])),
+        body_ang_vel_w=SimpleNamespace(torch=torch.tensor([[[0.0, 0.0, 0.1]], [[0.0, 0.0, -0.4]]])),
+    )
+    env: Any = SimpleNamespace(scene={"robot": SimpleNamespace(data=data)})
+    base_cfg = SceneEntityCfg("robot", body_ids=[0])
+
+    torch.testing.assert_close(heading_error(env, asset_cfg=base_cfg), torch.tensor([[0.0], [-0.5]]))
+    torch.testing.assert_close(world_forward_velocity(env, base_cfg), torch.tensor([1.2, -0.3]))
+    torch.testing.assert_close(heading_error_l2(env, asset_cfg=base_cfg), torch.tensor([0.0, 0.25]))
+    torch.testing.assert_close(yaw_rate_l2(env, base_cfg), torch.tensor([0.01, 0.16]))
+    assert not heading_deviation_above_limit(env, 0.75, asset_cfg=base_cfg).any()

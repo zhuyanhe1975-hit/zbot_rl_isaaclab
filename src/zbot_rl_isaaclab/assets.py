@@ -8,6 +8,7 @@ from importlib.resources import files
 import isaaclab.sim as sim_utils
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets import ArticulationCfg
+from isaaclab.sim.spawners.materials.physics_materials_cfg import RigidBodyMaterialBaseCfg
 
 ZBOT_6DOF_USD_PATH = str(files("zbot_rl_isaaclab").joinpath("assets/zbot_6s_new.usd"))
 """Packaged six-DoF ZBot USD asset path."""
@@ -16,6 +17,11 @@ ZBOT_6DOF_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
         usd_path=ZBOT_6DOF_USD_PATH,
         activate_contact_sensors=True,
+        physics_material=RigidBodyMaterialBaseCfg(
+            static_friction=1.0,
+            dynamic_friction=1.0,
+            restitution=0.0,
+        ),
     ),
     init_state=ArticulationCfg.InitialStateCfg(
         pos=(0.0, -0.06, 0.0),

@@ -11,7 +11,7 @@ import torch
 
 from isaaclab.managers import SceneEntityCfg
 
-from .observations import wrapped_heading_error
+from .observations import selected_body_heading_w, wrapped_heading_error
 
 if TYPE_CHECKING:
     from isaaclab.assets import Articulation
@@ -39,7 +39,11 @@ def heading_deviation_above_limit(
     """Terminate when absolute world-frame heading error exceeds ``maximum_deviation`` [rad]."""
     asset_cfg = SceneEntityCfg("robot") if asset_cfg is None else asset_cfg
     asset: Articulation = env.scene[asset_cfg.name]
-    return torch.abs(wrapped_heading_error(asset.data.heading_w.torch, target_heading)) > maximum_deviation
+    if isinstance(asset_cfg.body_ids, slice):
+        heading_w = asset.data.heading_w.torch
+    else:
+        heading_w = selected_body_heading_w(env, asset_cfg)
+    return torch.abs(wrapped_heading_error(heading_w, target_heading)) > maximum_deviation
 
 
 def filtered_contact_above_threshold(

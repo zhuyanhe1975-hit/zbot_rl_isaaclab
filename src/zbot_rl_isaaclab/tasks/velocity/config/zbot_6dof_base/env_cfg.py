@@ -16,7 +16,7 @@ from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers import TerminationTermCfg as DoneTerm
-from isaaclab.sensors import ContactSensorCfg
+from isaaclab.sensors import ContactSensorCfg, JointWrenchSensorCfg
 from isaaclab.sim import SimulationCfg
 from isaaclab.sim.spawners.from_files import UsdFileCfg
 from isaaclab.utils import configclass
@@ -25,11 +25,12 @@ from isaaclab.visualizers import VisualizerCfg
 from isaaclab_physx.sim.schemas import PhysxArticulationRootPropertiesCfg
 
 import isaaclab_tasks.core.locomotion.mdp as locomotion_mdp
+import isaaclab_tasks.core.velocity.mdp as velocity_mdp
 
 from zbot_rl_isaaclab.assets import ZBOT_6DOF_CFG
 
 from ...mdp.actions_cfg import VelocityIntegratedJointPositionActionCfg
-from ...mdp.commands_cfg import PeriodicSupportFootCommandCfg
+from ...mdp.commands_cfg import UniformStepFrequencyCommandCfg
 from ...mdp.observations import (
     center_of_mass_relative_to_feet,
     foot_contact_forces,
@@ -39,8 +40,8 @@ from ...mdp.observations import (
     selected_body_projected_gravity,
 )
 from ...mdp.rewards import (
-    commanded_support_force_contrast,
-    ideal_support_foot_distance_reward,
+    periodic_support_distance_tracking,
+    periodic_support_joint_force_tracking,
     selected_body_ang_vel_xy_l2,
     selected_body_lin_vel_z_l2,
 )
@@ -64,6 +65,10 @@ class BaseSceneCfg(VelocitySceneCfg):
     foot_collision = ContactSensorCfg(
         prim_path="{ENV_REGEX_NS}/Robot/foot_0",
         filter_prim_paths_expr=["{ENV_REGEX_NS}/Robot/foot_1"],
+        update_period=0.0,
+    )
+    ankle_wrenches = JointWrenchSensorCfg(
+        prim_path="{ENV_REGEX_NS}/Robot",
         update_period=0.0,
     )
 
@@ -108,7 +113,11 @@ class ObservationsCfg:
         foot_contact_forces = ObsTerm(
             func=foot_contact_forces,
             params={
-                "sensor_cfg": SceneEntityCfg("contact_forces", body_names="foot_.*"),
+                "sensor_cfg": SceneEntityCfg(
+                    "contact_forces",
+                    body_names=["foot_0", "foot_1"],
+                    preserve_order=True,
+                ),
                 "body_cfg": SceneEntityCfg("robot", body_names="base"),
             },
             scale=0.01,
@@ -116,7 +125,11 @@ class ObservationsCfg:
         com_relative_to_feet = ObsTerm(
             func=center_of_mass_relative_to_feet,
             params={
-                "asset_cfg": SceneEntityCfg("robot", body_names="foot_.*"),
+                "asset_cfg": SceneEntityCfg(
+                    "robot",
+                    body_names=["foot_0", "foot_1"],
+                    preserve_order=True,
+                ),
                 "body_cfg": SceneEntityCfg("robot", body_names="base"),
             },
         )
@@ -124,8 +137,13 @@ class ObservationsCfg:
         support_distance_error = ObsTerm(
             func=ideal_support_foot_normalized_distance_error,
             params={
-                "asset_cfg": SceneEntityCfg("robot", body_names="foot_.*"),
+                "asset_cfg": SceneEntityCfg(
+                    "robot",
+                    body_names=["foot_0", "foot_1"],
+                    preserve_order=True,
+                ),
                 "command_name": "weight_shift",
+                "command_index": 1,
             },
         )
 
@@ -138,11 +156,19 @@ class ObservationsCfg:
 
 @configclass
 class CommandsCfg:
-    """Switch the ideal support foot every half cycle."""
+    """Sample the support-foot switching frequency for each environment."""
 
-    weight_shift = PeriodicSupportFootCommandCfg(
+    weight_shift = UniformStepFrequencyCommandCfg(
         asset_name="robot",
-        period=1.0,
+        minimum_frequency=0.5,
+        maximum_frequency=2.0,
+        resampling_time_range=(20.0, 20.0),
+        include_phase_features=True,
+        frequency_is_full_cycle=True,
+        randomize_phase=False,
+        curriculum_initial_maximum_frequency=0.5,
+        curriculum_steps=24_000,
+        frequency_reward_term_name=None,
         debug_vis=True,
     )
 
@@ -180,20 +206,34 @@ class RewardsCfg:
     alive = RewTerm(func=base_mdp.is_alive, weight=2.0)
     termination_penalty = RewTerm(func=locomotion_mdp.terminated_penalty, weight=-20.0)
     support_distance = RewTerm(
-        func=ideal_support_foot_distance_reward,
-        weight=5.0,
+        func=periodic_support_distance_tracking,
+        weight=1.0,
         params={
-            "asset_cfg": SceneEntityCfg("robot", body_names="foot_.*"),
+            "asset_cfg": SceneEntityCfg(
+                "robot",
+                body_names=["foot_0", "foot_1"],
+                preserve_order=True,
+            ),
             "command_name": "weight_shift",
+            "phase_sin_index": 2,
+            "target_amplitude": 0.6,
+            "tolerance": 0.25,
         },
     )
     support_force = RewTerm(
-        func=commanded_support_force_contrast,
+        func=periodic_support_joint_force_tracking,
         weight=2.0,
         params={
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names="foot_.*"),
+            "sensor_cfg": SceneEntityCfg(
+                "ankle_wrenches",
+                body_names=["b1", "foot_1"],
+                preserve_order=True,
+            ),
             "command_name": "weight_shift",
             "minimum_total_force": 1.0,
+            "phase_sin_index": 2,
+            "target_amplitude": 0.8,
+            "tolerance": 0.3,
         },
     )
     feet_collision_penalty = RewTerm(
@@ -213,6 +253,14 @@ class RewardsCfg:
     )
     action_rate_l2 = RewTerm(func=base_mdp.action_rate_l2, weight=-0.01)
     joint_deviation_l1 = RewTerm(func=base_mdp.joint_deviation_l1, weight=-0.2)
+    feet_slide = RewTerm(
+        func=velocity_mdp.feet_slide,
+        weight=-1.0,
+        params={
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names="foot_.*"),
+            "asset_cfg": SceneEntityCfg("robot", body_names="foot_.*"),
+        },
+    )
 
 
 @configclass
@@ -264,4 +312,10 @@ class BaseEnvCfg(ManagerBasedRLEnvCfg):
         self.sim.render_interval = self.decimation
         self.scene.contact_forces.update_period = self.sim.dt
         self.scene.foot_collision.update_period = self.sim.dt
+        self.scene.ankle_wrenches.update_period = self.sim.dt
         self.sim.default_visualizer_cfg = VisualizerCfg(eye=(3.5, 3.5, 2.0))
+
+    def play_mode(self) -> None:
+        """Display the full frequency range deterministically across environments."""
+        self.commands.weight_shift.ordered = True
+        self.commands.weight_shift.resampling_time_range = (1.0e9, 1.0e9)

@@ -19,7 +19,7 @@ class PPORunnerCfg(RslRlOnPolicyRunnerCfg):
         hidden_dims=[256, 128, 128],
         activation="elu",
         obs_normalization=False,
-        distribution_cfg=RslRlMLPModelCfg.GaussianDistributionCfg(init_std=0.7),
+        distribution_cfg=RslRlMLPModelCfg.GaussianDistributionCfg(init_std=0.4),
     )
     critic = RslRlMLPModelCfg(
         hidden_dims=[256, 128, 128],
@@ -30,10 +30,10 @@ class PPORunnerCfg(RslRlOnPolicyRunnerCfg):
         value_loss_coef=1.0,
         use_clipped_value_loss=True,
         clip_param=0.2,
-        entropy_coef=0.01,
+        entropy_coef=0.002,
         num_learning_epochs=5,
         num_mini_batches=4,
-        learning_rate=5.0e-4,
+        learning_rate=1.0e-4,
         schedule="fixed",
         gamma=0.995,
         lam=0.97,

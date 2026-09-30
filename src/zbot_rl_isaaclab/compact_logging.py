@@ -22,8 +22,73 @@ def _mean_episode_metrics(ep_extras: Sequence[Mapping[str, Any]], device: str) -
     return metrics
 
 
-def _sum_metrics(metrics: Mapping[str, float], keys: Sequence[str]) -> float:
-    return sum(metrics.get(key, 0.0) for key in keys)
+def _nonzero_reward_weights(env_cfg: Mapping[str, Any] | object) -> dict[str, float]:
+    """Return configured reward weights in declaration order, excluding disabled terms."""
+    rewards = env_cfg.get("rewards") if isinstance(env_cfg, Mapping) else getattr(env_cfg, "rewards", None)
+    if rewards is None:
+        return {}
+
+    terms = rewards.items() if isinstance(rewards, Mapping) else vars(rewards).items()
+    weights: dict[str, float] = {}
+    for name, term in terms:
+        weight = term.get("weight") if isinstance(term, Mapping) else getattr(term, "weight", None)
+        if weight is None:
+            continue
+        numeric_weight = float(weight)
+        if numeric_weight != 0.0:
+            weights[name] = numeric_weight
+    return weights
+
+
+def _format_reward_rows(
+    metrics: Mapping[str, float],
+    reward_weights: Mapping[str, float],
+    *,
+    max_width: int = 120,
+) -> tuple[str, ...]:
+    """Render every enabled reward term, wrapping long groups across console rows."""
+
+    def wrap(label: str, entries: Sequence[str]) -> list[str]:
+        rows: list[str] = []
+        current = label
+        for entry in entries:
+            candidate = f"{current}  {entry}"
+            if current != label and len(candidate) > max_width:
+                rows.append(current)
+                current = f"{label}  {entry}"
+            else:
+                current = candidate
+        if current != label:
+            rows.append(current)
+        return rows
+
+    positive: list[str] = []
+    negative: list[str] = []
+    for name, weight in reward_weights.items():
+        if weight == 0.0:
+            continue
+        value = metrics.get(f"Episode_Reward/{name}", 0.0)
+        displayed_value = f"{value:+.3e}" if 0.0 < abs(value) < 0.0005 else f"{value:+.3f}"
+        entry = f"{name}={displayed_value} (scale={weight:g})"
+        (positive if weight > 0.0 else negative).append(entry)
+    return tuple(wrap("[Rewards]", positive) + wrap("[Penalties]", negative))
+
+
+def _format_frequency_tracking_rows(metrics: Mapping[str, float]) -> tuple[str, ...]:
+    """Render command-to-measured cadence for populated evaluation bins."""
+    entries: list[str] = []
+    for center, label in ((0.5, "0p5"), (1.0, "1"), (1.5, "1p5"), (2.0, "2")):
+        prefix = "Metrics/step_frequency/"
+        samples = metrics.get(f"{prefix}samples_{label}", 0.0)
+        if samples <= 0.0:
+            continue
+        measured = metrics.get(f"{prefix}measured_sum_{label}", 0.0) / samples
+        bias = abs(metrics.get(f"{prefix}signed_error_sum_{label}", 0.0) / samples)
+        mae = metrics.get(f"{prefix}absolute_error_sum_{label}", 0.0) / samples
+        entries.append(f"{center:g}->{measured:.2f}Hz (bias={bias:.2f}, mae={mae:.2f}, n={samples:.0f})")
+    if not entries:
+        return ()
+    return ("[Frequency] " + "  ".join(entries),)
 
 
 def format_compact_training_log(
@@ -41,39 +106,34 @@ def format_compact_training_log(
     mean_reward: float | None,
     mean_episode_length: float | None,
     metrics: Mapping[str, float],
+    reward_weights: Mapping[str, float] | None = None,
     task_profile: str = "walking",
 ) -> str:
-    """Format the important training signals into fixed, categorized rows."""
-    stage = int(round(metrics.get("Curriculum/walking_stages/stage", 1.0)))
+    """Format training signals and every reward term whose configured weight is non-zero."""
+    has_walking_curriculum = "Curriculum/walking_stages/stage" in metrics
+    stage = int(round(metrics.get("Curriculum/walking_stages/stage", 2.0)))
     ready = metrics.get("Curriculum/walking_stages/promotion_ready", 0.0) >= 0.5
-    blend = metrics.get("Curriculum/walking_stages/stage_two_blend", 0.0)
-    survival = metrics.get("Curriculum/walking_stages/survival_ratio_ema", 0.0)
+    blend = metrics.get("Curriculum/walking_stages/stage_two_blend", 1.0)
+    survival = metrics.get(
+        "Curriculum/walking_stages/survival_ratio_ema",
+        metrics.get("Episode_Termination/time_out", 0.0),
+    )
     cadence = metrics.get("Curriculum/walking_stages/alternation_rate_ema", 0.0)
 
-    balance_penalty = _sum_metrics(
-        metrics,
-        (
-            "Episode_Reward/body_lateral_vel_l2",
-            "Episode_Reward/stage_one_horizontal_velocity_l2",
-            "Episode_Reward/single_support_foot_height_l2",
-            "Episode_Reward/feet_slide",
-            "Episode_Reward/step_length_asymmetry",
-        ),
+    if reward_weights is None:
+        reward_weights = {
+            key.removeprefix("Episode_Reward/"): 1.0 for key in metrics if key.startswith("Episode_Reward/")
+        }
+    reward_rows = _format_reward_rows(metrics, reward_weights)
+    command_rows = ()
+    target_frequency_keys = (
+        "Metrics/step_frequency/mean_target_frequency",
+        "Metrics/weight_shift/mean_target_frequency",
     )
-    control_penalty = _sum_metrics(
-        metrics,
-        (
-            "Episode_Reward/joint_acc_l2",
-            "Episode_Reward/joint_torques_l2",
-            "Episode_Reward/joint_deviation",
-            "Episode_Reward/action_rate_l2",
-            "Episode_Reward/joint_pos_limits",
-        ),
-    )
-    safety_penalty = _sum_metrics(
-        metrics,
-        ("Episode_Reward/termination_penalty", "Episode_Reward/undesired_contacts"),
-    )
+    target_frequency_key = next((key for key in target_frequency_keys if key in metrics), None)
+    if target_frequency_key is not None:
+        command_rows = (f"[Command] target_frequency={metrics[target_frequency_key]:.3f}Hz",)
+    frequency_tracking_rows = _format_frequency_tracking_rows(metrics)
 
     loss_text = " ".join(f"{name}={float(value):.4f}" for name, value in losses.items())
     reward_text = "n/a" if mean_reward is None else f"{mean_reward:.2f}"
@@ -88,23 +148,9 @@ def format_compact_training_log(
         f"[Optimization] {loss_text}  lr={learning_rate:.2e}  action_std={action_std:.3f}",
     )
     if task_profile == "base":
-        motion_penalty = _sum_metrics(
-            metrics,
-            ("Episode_Reward/vertical_velocity_l2", "Episode_Reward/angular_velocity_l2"),
-        )
-        base_control_penalty = _sum_metrics(
-            metrics,
-            ("Episode_Reward/action_rate_l2",),
-        )
         task_rows = (
             f"[Episode] reward={reward_text}  length={length_text}",
-            "[Rewards] "
-            f"support_distance={metrics.get('Episode_Reward/support_distance', 0.0):+.3f}  "
-            f"support_force={metrics.get('Episode_Reward/support_force', 0.0):+.3f}  "
-            f"alive={metrics.get('Episode_Reward/alive', 0.0):+.3f}",
-            "[Penalties] "
-            f"joint_pose={metrics.get('Episode_Reward/joint_deviation_l1', 0.0):+.3f}  "
-            f"motion={motion_penalty:+.3f}  control={base_control_penalty:+.3f}",
+            *reward_rows,
             "[Termination] "
             f"timeout={metrics.get('Episode_Termination/time_out', 0.0):.1%}  "
             f"fall={metrics.get('Episode_Termination/base_height', 0.0):.1%}  "
@@ -113,16 +159,17 @@ def format_compact_training_log(
         )
         return "\n".join(common_rows + task_rows)
 
+    mode_row = (
+        f"[Curriculum] stage={stage}  ready={'yes' if ready else 'no'}  blend={blend:.2f}  cadence={cadence:.2f}Hz"
+        if has_walking_curriculum
+        else "[Mode] direct walking"
+    )
     walking_rows = (
         f"[Episode] reward={reward_text}  length={length_text}  survival={survival:.1%}",
-        f"[Curriculum] stage={stage}  ready={'yes' if ready else 'no'}  blend={blend:.2f}  cadence={cadence:.2f}Hz",
-        "[Rewards] "
-        f"alive={metrics.get('Episode_Reward/alive', 0.0):+.3f}  "
-        f"touchdown={metrics.get('Episode_Reward/alternating_touchdown', 0.0):+.3f}  "
-        f"frequency={metrics.get('Episode_Reward/stage_one_step_frequency', 0.0):+.3f}  "
-        f"forward={metrics.get('Episode_Reward/body_forward_speed', 0.0):+.3f}  "
-        f"step={metrics.get('Episode_Reward/step_length', 0.0):+.3f}",
-        f"[Penalties] balance={balance_penalty:+.3f}  control={control_penalty:+.3f}  safety={safety_penalty:+.3f}",
+        mode_row,
+        *command_rows,
+        *frequency_tracking_rows,
+        *reward_rows,
         "[Termination] "
         f"timeout={metrics.get('Episode_Termination/time_out', 0.0):.1%}  "
         f"base_height={metrics.get('Episode_Termination/base_height', 0.0):.1%}",
@@ -194,7 +241,12 @@ def install_compact_rsl_rl_logging() -> None:
                 mean_reward=mean_reward,
                 mean_episode_length=mean_episode_length,
                 metrics=metrics,
-                task_profile="base" if self.cfg.get("experiment_name") == "zbot_6dof_base" else "walking",
+                reward_weights=_nonzero_reward_weights(self.env_cfg),
+                task_profile=(
+                    "base"
+                    if self.cfg.get("experiment_name") in {"zbot_6dof_base", "zbot_6dof_frequency_balance"}
+                    else "walking"
+                ),
             )
         )
 

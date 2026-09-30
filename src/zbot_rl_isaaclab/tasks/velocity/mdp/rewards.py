@@ -14,16 +14,18 @@ from isaaclab.managers import ManagerTermBase, RewardTermCfg, SceneEntityCfg
 from isaaclab.utils.math import quat_apply_inverse
 
 from .observations import (
+    heading_error,
     selected_body_ang_vel_b,
     selected_body_lin_vel_b,
+    selected_body_projected_gravity,
     support_foot_planar_distances,
-    wrapped_heading_error,
+    whole_body_center_of_mass,
 )
 
 if TYPE_CHECKING:
     from isaaclab.assets import Articulation, RigidObject
     from isaaclab.envs import ManagerBasedRLEnv
-    from isaaclab.sensors import ContactSensor
+    from isaaclab.sensors import ContactSensor, JointWrenchSensor
 
 
 def body_forward_velocity(
@@ -43,7 +45,22 @@ def world_forward_velocity(
     """Reward linear velocity along the fixed world ``+X`` direction [m/s]."""
     asset_cfg = SceneEntityCfg("robot") if asset_cfg is None else asset_cfg
     asset: RigidObject = env.scene[asset_cfg.name]
-    return asset.data.root_lin_vel_w.torch[:, 0]
+    if isinstance(asset_cfg.body_ids, slice):
+        return asset.data.root_lin_vel_w.torch[:, 0]
+    if len(asset_cfg.body_ids) != 1:
+        raise ValueError("World-forward velocity requires exactly one selected rigid body.")
+    return asset.data.body_lin_vel_w.torch[:, asset_cfg.body_ids[0], 0]
+
+
+def world_forward_velocity_score(
+    env: ManagerBasedRLEnv,
+    target_speed: float,
+    asset_cfg: SceneEntityCfg | None = None,
+) -> torch.Tensor:
+    """Return a bounded dense score for forward velocity, with saturation at useful walking speed."""
+    if target_speed <= 0.0:
+        raise ValueError("Target forward speed must be positive.")
+    return torch.tanh(world_forward_velocity(env, asset_cfg) / target_speed)
 
 
 def heading_error_l2(
@@ -52,9 +69,8 @@ def heading_error_l2(
     asset_cfg: SceneEntityCfg | None = None,
 ) -> torch.Tensor:
     """Penalize squared deviation from the target world-frame heading [rad^2]."""
-    asset_cfg = SceneEntityCfg("robot") if asset_cfg is None else asset_cfg
-    asset: RigidObject = env.scene[asset_cfg.name]
-    return torch.square(wrapped_heading_error(asset.data.heading_w.torch, target_heading))
+    error = heading_error(env, target_heading=target_heading, asset_cfg=asset_cfg)
+    return torch.square(error[:, 0])
 
 
 def yaw_rate_l2(
@@ -64,7 +80,11 @@ def yaw_rate_l2(
     """Penalize squared world-frame yaw rate [rad^2/s^2]."""
     asset_cfg = SceneEntityCfg("robot") if asset_cfg is None else asset_cfg
     asset: RigidObject = env.scene[asset_cfg.name]
-    return torch.square(asset.data.root_ang_vel_w.torch[:, 2])
+    if isinstance(asset_cfg.body_ids, slice):
+        return torch.square(asset.data.root_ang_vel_w.torch[:, 2])
+    if len(asset_cfg.body_ids) != 1:
+        raise ValueError("Yaw-rate penalty requires exactly one selected rigid body.")
+    return torch.square(asset.data.body_ang_vel_w.torch[:, asset_cfg.body_ids[0], 2])
 
 
 def body_lateral_velocity_l2(
@@ -74,6 +94,8 @@ def body_lateral_velocity_l2(
     """Penalize lateral velocity along the body's ``Y`` axis [m/s]."""
     asset_cfg = SceneEntityCfg("robot") if asset_cfg is None else asset_cfg
     asset: RigidObject = env.scene[asset_cfg.name]
+    if not isinstance(asset_cfg.body_ids, slice):
+        return torch.square(selected_body_lin_vel_b(env, asset_cfg)[:, 1])
     return torch.square(asset.data.root_lin_vel_b.torch[:, 1])
 
 
@@ -84,6 +106,8 @@ def body_horizontal_velocity_l2(
     """Penalize planar body velocity for in-place stepping [m^2/s^2]."""
     asset_cfg = SceneEntityCfg("robot") if asset_cfg is None else asset_cfg
     asset: RigidObject = env.scene[asset_cfg.name]
+    if not isinstance(asset_cfg.body_ids, slice):
+        return torch.sum(torch.square(selected_body_lin_vel_b(env, asset_cfg)[:, :2]), dim=1)
     return torch.sum(torch.square(asset.data.root_lin_vel_b.torch[:, :2]), dim=1)
 
 
@@ -95,6 +119,11 @@ def selected_body_lin_vel_z_l2(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg
 def selected_body_ang_vel_xy_l2(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg) -> torch.Tensor:
     """Penalize one selected body's roll and pitch angular velocities in its own frame."""
     return torch.sum(torch.square(selected_body_ang_vel_b(env, asset_cfg)[:, :2]), dim=1)
+
+
+def selected_body_flat_orientation_l2(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg) -> torch.Tensor:
+    """Penalize one selected body's deviation from an upright gravity projection."""
+    return torch.sum(torch.square(selected_body_projected_gravity(env, asset_cfg)[:, :2]), dim=1)
 
 
 def ideal_support_foot_distance_score(
@@ -111,10 +140,69 @@ def ideal_support_foot_distance_reward(
     env: ManagerBasedRLEnv,
     asset_cfg: SceneEntityCfg,
     command_name: str,
+    command_index: int = 0,
 ) -> torch.Tensor:
     """Reward moving the COM ground projection toward the ideal support foot."""
-    distances = support_foot_planar_distances(env, asset_cfg, command_name)
+    distances = support_foot_planar_distances(env, asset_cfg, command_name, command_index)
     return ideal_support_foot_distance_score(distances[:, 0], distances[:, 1])
+
+
+def periodic_tracking_score(
+    actual: torch.Tensor,
+    target: torch.Tensor,
+    tolerance: float,
+) -> torch.Tensor:
+    """Return a smooth signed score in ``(-1, 1]`` for periodic tracking."""
+    if actual.shape != target.shape:
+        raise ValueError("Actual and target periodic signals must have matching shapes.")
+    if tolerance <= 0.0:
+        raise ValueError("Periodic tracking tolerance must be positive.")
+    normalized_error_l2 = torch.square((actual - target) / tolerance)
+    return 2.0 / (1.0 + normalized_error_l2) - 1.0
+
+
+def signed_support_distance_contrast(foot_distances: torch.Tensor) -> torch.Tensor:
+    """Return positive values near foot 0 and negative values near foot 1."""
+    if foot_distances.shape[1:] != (2,):
+        raise ValueError("Foot distances must have shape (num_envs, 2).")
+    return (foot_distances[:, 1] - foot_distances[:, 0]) / foot_distances.sum(dim=1).clamp_min(1.0e-6)
+
+
+def signed_support_force_contrast(
+    foot_force_magnitudes: torch.Tensor,
+    minimum_total_force: float,
+) -> torch.Tensor:
+    """Return positive values when foot 0 carries more load and negative values for foot 1."""
+    if foot_force_magnitudes.shape[1:] != (2,):
+        raise ValueError("Foot forces must have shape (num_envs, 2).")
+    if minimum_total_force <= 0.0:
+        raise ValueError("Minimum total foot force must be positive.")
+    total_force = foot_force_magnitudes.sum(dim=1)
+    contrast = (foot_force_magnitudes[:, 0] - foot_force_magnitudes[:, 1]) / total_force.clamp_min(minimum_total_force)
+    return torch.where(total_force >= minimum_total_force, contrast, 0.0)
+
+
+def periodic_support_distance_tracking(
+    env: ManagerBasedRLEnv,
+    asset_cfg: SceneEntityCfg,
+    command_name: str,
+    phase_sin_index: int,
+    target_amplitude: float,
+    tolerance: float,
+) -> torch.Tensor:
+    """Track a sinusoidal COM transfer between the two planted feet."""
+    if not 0.0 < target_amplitude <= 1.0:
+        raise ValueError("COM target amplitude must be in (0, 1].")
+    command = env.command_manager.get_command(command_name)
+    if isinstance(asset_cfg.body_ids, slice) or len(asset_cfg.body_ids) != 2:
+        raise ValueError("Periodic COM tracking requires exactly two ordered foot bodies.")
+    asset = cast("Articulation", env.scene[asset_cfg.name])
+    center_of_mass_w = whole_body_center_of_mass(asset.data.body_com_pos_w.torch, asset.data.body_mass.torch)
+    feet_w = asset.data.body_pos_w.torch[:, asset_cfg.body_ids]
+    distances = torch.linalg.vector_norm(center_of_mass_w[:, None, :2] - feet_w[:, :, :2], dim=2)
+    actual = signed_support_distance_contrast(distances)
+    target = target_amplitude * command[:, phase_sin_index]
+    return periodic_tracking_score(actual, target, tolerance)
 
 
 def commanded_support_force_contrast_score(
@@ -142,6 +230,7 @@ def commanded_support_force_contrast(
     sensor_cfg: SceneEntityCfg,
     command_name: str,
     minimum_total_force: float,
+    command_index: int = 0,
 ) -> torch.Tensor:
     """Densely reward loading the ideal support foot over the swing foot."""
     if isinstance(sensor_cfg.body_ids, slice) or len(sensor_cfg.body_ids) != 2:
@@ -151,18 +240,95 @@ def commanded_support_force_contrast(
     if normal_forces_w is None:
         raise RuntimeError("Contact sensor must provide normal forces for support-foot contact reward.")
     forces = normal_forces_w.torch[:, sensor_cfg.body_ids].norm(dim=-1)
-    target_side = env.command_manager.get_command(command_name)[:, 0]
+    target_side = env.command_manager.get_command(command_name)[:, command_index]
     return commanded_support_force_contrast_score(forces, target_side, minimum_total_force)
+
+
+def commanded_support_joint_force_contrast(
+    env: ManagerBasedRLEnv,
+    sensor_cfg: SceneEntityCfg,
+    command_name: str,
+    minimum_total_force: float,
+    command_index: int = 0,
+) -> torch.Tensor:
+    """Reward commanded-foot loading using the two ankle joint reaction forces.
+
+    Joint reaction wrenches avoid backend-specific rigid-contact manifold aggregation. The configured
+    body order must be the foot-0-side ankle child followed by the foot-1-side ankle child.
+    """
+    if isinstance(sensor_cfg.body_ids, slice) or len(sensor_cfg.body_ids) != 2:
+        raise ValueError("Support-foot joint-force reward requires exactly two ankle wrench bodies.")
+    sensor = cast("JointWrenchSensor", env.scene.sensors[sensor_cfg.name])
+    joint_forces = sensor.data.force
+    if joint_forces is None:
+        raise RuntimeError("Joint wrench sensor must provide forces for support-foot loading reward.")
+    forces = joint_forces.torch[:, sensor_cfg.body_ids].norm(dim=-1)
+    target_side = env.command_manager.get_command(command_name)[:, command_index]
+    return commanded_support_force_contrast_score(forces, target_side, minimum_total_force)
+
+
+def periodic_support_force_tracking(
+    env: ManagerBasedRLEnv,
+    sensor_cfg: SceneEntityCfg,
+    command_name: str,
+    minimum_total_force: float,
+    phase_sin_index: int,
+    target_amplitude: float,
+    tolerance: float,
+) -> torch.Tensor:
+    """Track signed sinusoidal load transfer using ordered foot contact forces."""
+    if not 0.0 < target_amplitude <= 1.0:
+        raise ValueError("Force target amplitude must be in (0, 1].")
+    if isinstance(sensor_cfg.body_ids, slice) or len(sensor_cfg.body_ids) != 2:
+        raise ValueError("Periodic support tracking requires exactly two ordered foot sensors.")
+    sensor = cast("ContactSensor", env.scene.sensors[sensor_cfg.name])
+    normal_forces_w = sensor.data.net_normal_forces_w
+    if normal_forces_w is None:
+        raise RuntimeError("Foot contact sensor must provide normal forces for periodic support tracking.")
+    command = env.command_manager.get_command(command_name)
+    forces = normal_forces_w.torch[:, sensor_cfg.body_ids].norm(dim=-1)
+    actual = signed_support_force_contrast(forces, minimum_total_force)
+    target = target_amplitude * command[:, phase_sin_index]
+    return periodic_tracking_score(actual, target, tolerance)
+
+
+def periodic_support_joint_force_tracking(
+    env: ManagerBasedRLEnv,
+    sensor_cfg: SceneEntityCfg,
+    command_name: str,
+    minimum_total_force: float,
+    phase_sin_index: int,
+    target_amplitude: float,
+    tolerance: float,
+) -> torch.Tensor:
+    """Track signed sinusoidal load transfer using the proven ankle-reaction signal."""
+    if not 0.0 < target_amplitude <= 1.0:
+        raise ValueError("Force target amplitude must be in (0, 1].")
+    if isinstance(sensor_cfg.body_ids, slice) or len(sensor_cfg.body_ids) != 2:
+        raise ValueError("Periodic support tracking requires exactly two ordered ankle wrench bodies.")
+    sensor = cast("JointWrenchSensor", env.scene.sensors[sensor_cfg.name])
+    joint_forces = sensor.data.force
+    if joint_forces is None:
+        raise RuntimeError("Joint wrench sensor must provide forces for periodic support tracking.")
+    command = env.command_manager.get_command(command_name)
+    forces = joint_forces.torch[:, sensor_cfg.body_ids].norm(dim=-1)
+    actual = signed_support_force_contrast(forces, minimum_total_force)
+    target = target_amplitude * command[:, phase_sin_index]
+    return periodic_tracking_score(actual, target, tolerance)
 
 
 def compute_single_support_foot_height_difference_l2(
     foot_positions_w: torch.Tensor,
     foot_contacts: torch.Tensor,
+    maximum_height_difference: float,
 ) -> torch.Tensor:
-    """Compute squared foot-height difference during single support [m^2]."""
+    """Penalize only the foot-height difference above a normal swing clearance."""
+    if maximum_height_difference < 0.0:
+        raise ValueError("Maximum unpenalized foot-height difference must be non-negative.")
     single_support = torch.sum(foot_contacts.int(), dim=1) == 1
-    height_difference = foot_positions_w[:, 0, 2] - foot_positions_w[:, 1, 2]
-    return torch.square(height_difference) * single_support.float()
+    height_difference = torch.abs(foot_positions_w[:, 0, 2] - foot_positions_w[:, 1, 2])
+    excessive_height = (height_difference - maximum_height_difference).clamp_min(0.0)
+    return torch.square(excessive_height) * single_support.float()
 
 
 def single_support_foot_height_difference_l2(
@@ -170,6 +336,7 @@ def single_support_foot_height_difference_l2(
     sensor_cfg: SceneEntityCfg,
     asset_cfg: SceneEntityCfg,
     force_threshold: float,
+    maximum_height_difference: float,
 ) -> torch.Tensor:
     """Penalize excessive swing-foot height relative to the supporting foot."""
     if isinstance(sensor_cfg.body_ids, slice) or len(sensor_cfg.body_ids) != 2:
@@ -186,7 +353,44 @@ def single_support_foot_height_difference_l2(
     return compute_single_support_foot_height_difference_l2(
         asset.data.body_pos_w.torch[:, asset_cfg.body_ids],
         contact_force >= force_threshold,
+        maximum_height_difference,
     )
+
+
+def touchdown_impact_excess_l2(
+    peak_forces: torch.Tensor,
+    valid_touchdowns: torch.Tensor,
+    maximum_unpenalized_force: float,
+) -> torch.Tensor:
+    """Sum squared relative force excess for newly landed feet."""
+    if peak_forces.shape != valid_touchdowns.shape or peak_forces.ndim != 2:
+        raise ValueError("Peak forces and touchdown flags must have matching (num_envs, num_feet) shapes.")
+    if maximum_unpenalized_force <= 0.0:
+        raise ValueError("Maximum unpenalized touchdown force must be positive.")
+    excess = (peak_forces / maximum_unpenalized_force - 1.0).clamp_min(0.0)
+    return (torch.square(excess) * valid_touchdowns).sum(dim=1)
+
+
+def touchdown_impact_force_l2(
+    env: ManagerBasedRLEnv,
+    sensor_cfg: SceneEntityCfg,
+    minimum_air_time: float,
+    force_threshold: float,
+    maximum_unpenalized_force: float,
+) -> torch.Tensor:
+    """Penalize high peak contact forces only at valid foot touchdowns."""
+    if isinstance(sensor_cfg.body_ids, slice) or len(sensor_cfg.body_ids) != 2:
+        raise ValueError("Touchdown impact penalty requires exactly two resolved foot sensors.")
+    sensor = cast("ContactSensor", env.scene.sensors[sensor_cfg.name])
+    history = sensor.data.net_normal_forces_w_history
+    last_air_time = sensor.data.last_air_time
+    if history is None or last_air_time is None:
+        raise RuntimeError("Touchdown impact penalty requires force history and air-time tracking.")
+    peak_forces = history.torch[:, :, sensor_cfg.body_ids, :].norm(dim=-1).max(dim=1)[0]
+    touchdowns = sensor.compute_first_contact(env.step_dt).torch[:, sensor_cfg.body_ids].bool()
+    valid = touchdowns & (last_air_time.torch[:, sensor_cfg.body_ids] >= minimum_air_time)
+    valid &= peak_forces >= force_threshold
+    return touchdown_impact_excess_l2(peak_forces, valid, maximum_unpenalized_force)
 
 
 def update_alternating_touchdown_state(
@@ -201,6 +405,19 @@ def update_alternating_touchdown_state(
     alternated = (landing_foot >= 0) & (last_landing_foot >= 0) & (landing_foot != last_landing_foot)
     updated_history = torch.where(landing_foot >= 0, landing_foot, last_landing_foot)
     return alternated.float(), updated_history
+
+
+def filter_short_touchdown_intervals(
+    valid_touchdown: torch.Tensor,
+    last_landing_foot: torch.Tensor,
+    time_since_alternation: torch.Tensor,
+    minimum_interval: float,
+) -> torch.Tensor:
+    """Ignore brief contact bounces without changing the last accepted landing foot."""
+    if minimum_interval < 0.0:
+        raise ValueError("Minimum touchdown interval must be non-negative.")
+    eligible = (last_landing_foot < 0) | (time_since_alternation >= minimum_interval)
+    return valid_touchdown & eligible.unsqueeze(1)
 
 
 def frequency_band_score(
@@ -243,6 +460,36 @@ def time_normalize_frequency_event_metric(metric: torch.Tensor, interval: torch.
     return metric * interval
 
 
+def frequency_command_score(
+    measured_frequency: torch.Tensor,
+    commanded_frequency: torch.Tensor,
+    tolerance: float,
+) -> torch.Tensor:
+    """Score frequency tracking with a smooth kernel that retains gradients far from the target."""
+    if tolerance <= 0.0:
+        raise ValueError("Frequency command tolerance must be positive.")
+    normalized_error_l2 = torch.square((measured_frequency - commanded_frequency) / tolerance)
+    return torch.reciprocal(1.0 + normalized_error_l2)
+
+
+def frequency_command_error_l2(
+    measured_frequency: torch.Tensor,
+    commanded_frequency: torch.Tensor,
+) -> torch.Tensor:
+    """Return squared error between measured and commanded stepping frequencies."""
+    return torch.square(measured_frequency - commanded_frequency)
+
+
+def frequency_command_relative_error_l2(
+    measured_frequency: torch.Tensor,
+    commanded_frequency: torch.Tensor,
+) -> torch.Tensor:
+    """Return squared relative cadence error so all commanded frequencies use one scale."""
+    if torch.any(commanded_frequency <= 0.0):
+        raise ValueError("Commanded frequencies must be positive.")
+    return torch.square((measured_frequency - commanded_frequency) / commanded_frequency)
+
+
 def foot_relative_position_x(
     foot_positions_w: torch.Tensor,
     root_quat_w: torch.Tensor,
@@ -251,6 +498,60 @@ def foot_relative_position_x(
     foot_0_from_1_w = foot_positions_w[:, 0] - foot_positions_w[:, 1]
     foot_0_from_1_b = quat_apply_inverse(root_quat_w, foot_0_from_1_w)
     return torch.stack((foot_0_from_1_b[:, 0], -foot_0_from_1_b[:, 0]), dim=1)
+
+
+def commanded_swing_foot_score(
+    per_foot_value: torch.Tensor,
+    target_side: torch.Tensor,
+    target_value: float,
+) -> torch.Tensor:
+    """Score the commanded swing foot's positive progress toward a target value."""
+    if per_foot_value.shape[1:] != (2,) or target_side.shape != per_foot_value.shape[:1]:
+        raise ValueError("Per-foot values must have shape (num_envs, 2).")
+    if target_value <= 0.0:
+        raise ValueError("Swing-foot target value must be positive.")
+    swing_index = torch.where(target_side > 0.0, 1, 0)
+    environment_index = torch.arange(target_side.shape[0], device=target_side.device)
+    return (per_foot_value[environment_index, swing_index] / target_value).clamp(0.0, 1.0)
+
+
+def commanded_swing_foot_height(
+    env: ManagerBasedRLEnv,
+    asset_cfg: SceneEntityCfg,
+    command_name: str,
+    target_height: float,
+    command_index: int = 1,
+) -> torch.Tensor:
+    """Densely reward lifting the scheduled swing foot above the support foot."""
+    if isinstance(asset_cfg.body_ids, slice) or len(asset_cfg.body_ids) != 2:
+        raise ValueError("Swing-foot height reward requires exactly two foot bodies.")
+    asset = cast("Articulation", env.scene[asset_cfg.name])
+    heights = asset.data.body_pos_w.torch[:, asset_cfg.body_ids, 2]
+    relative_heights = torch.stack((heights[:, 0] - heights[:, 1], heights[:, 1] - heights[:, 0]), dim=1)
+    target_side = env.command_manager.get_command(command_name)[:, command_index]
+    return commanded_swing_foot_score(relative_heights, target_side, target_height)
+
+
+def commanded_swing_foot_forward_progress(
+    env: ManagerBasedRLEnv,
+    asset_cfg: SceneEntityCfg,
+    body_cfg: SceneEntityCfg,
+    command_name: str,
+    target_distance: float,
+    command_index: int = 1,
+) -> torch.Tensor:
+    """Densely reward moving the scheduled swing foot ahead of the support foot."""
+    if isinstance(asset_cfg.body_ids, slice) or len(asset_cfg.body_ids) != 2:
+        raise ValueError("Swing-foot progress reward requires exactly two foot bodies.")
+    if isinstance(body_cfg.body_ids, slice) or len(body_cfg.body_ids) != 1:
+        raise ValueError("Swing-foot progress reward requires exactly one body-frame body.")
+    asset = cast("Articulation", env.scene[asset_cfg.name])
+    relative_x = foot_relative_position_x(
+        asset.data.body_pos_w.torch[:, asset_cfg.body_ids],
+        asset.data.body_quat_w.torch[:, body_cfg.body_ids[0]],
+    )
+    target_side = env.command_manager.get_command(command_name)[:, command_index]
+    return commanded_swing_foot_score(relative_x, target_side, target_distance)
 
 
 def update_crossing_touchdown_state(
@@ -276,8 +577,7 @@ def update_step_length_state(
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """Update per-foot step lengths and return length reward plus symmetry error [m]."""
     landing_step_length = torch.sum(forward_step_length * valid_touchdown.float(), dim=1)
-    updated_step_length = last_step_length.clone()
-    updated_step_length[valid_touchdown] = forward_step_length[valid_touchdown]
+    updated_step_length = torch.where(valid_touchdown, forward_step_length, last_step_length)
     updated_has_step_length = has_step_length | valid_touchdown
     has_both_steps = torch.all(updated_has_step_length, dim=1)
     landed = torch.any(valid_touchdown, dim=1)
@@ -303,6 +603,10 @@ class AlternatingFeetTouchdownReward(ManagerTermBase):
         self._frequency_score = torch.zeros(env.num_envs, device=env.device)
         self._frequency_error_l2 = torch.zeros(env.num_envs, device=env.device)
         self._frequency_excess_l2 = torch.zeros(env.num_envs, device=env.device)
+        self._measured_frequency = torch.zeros(env.num_envs, device=env.device)
+        self._frequency_event_interval = torch.zeros(env.num_envs, device=env.device)
+        self._has_frequency_event = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+        self._last_frequency_command = torch.zeros(env.num_envs, device=env.device)
 
     @property
     def last_landing_foot(self) -> torch.Tensor:
@@ -329,6 +633,21 @@ class AlternatingFeetTouchdownReward(ManagerTermBase):
         """Squared excess of the latest alternating event above the maximum target frequency."""
         return self._frequency_excess_l2
 
+    @property
+    def measured_frequency(self) -> torch.Tensor:
+        """Measured frequency for the latest valid alternating-touchdown interval."""
+        return self._measured_frequency
+
+    @property
+    def frequency_event_interval(self) -> torch.Tensor:
+        """Duration of the latest valid alternating-touchdown interval."""
+        return self._frequency_event_interval
+
+    @property
+    def has_frequency_event(self) -> torch.Tensor:
+        """Whether the current step contains a valid frequency measurement."""
+        return self._has_frequency_event
+
     def reset(self, env_ids: Sequence[int] | torch.Tensor | slice | None = None) -> None:
         """Clear touchdown history for selected environments."""
         selected = slice(None) if env_ids is None else env_ids
@@ -339,6 +658,10 @@ class AlternatingFeetTouchdownReward(ManagerTermBase):
         self._frequency_score[selected] = 0.0
         self._frequency_error_l2[selected] = 0.0
         self._frequency_excess_l2[selected] = 0.0
+        self._measured_frequency[selected] = 0.0
+        self._frequency_event_interval[selected] = 0.0
+        self._has_frequency_event[selected] = False
+        self._last_frequency_command[selected] = 0.0
 
     def __call__(
         self,
@@ -349,8 +672,16 @@ class AlternatingFeetTouchdownReward(ManagerTermBase):
         minimum_frequency: float,
         maximum_frequency: float,
         frequency_tolerance: float,
+        frequency_command_name: str | None = None,
+        minimum_alternation_interval: float = 0.0,
     ) -> torch.Tensor:
         """Return one for a valid alternating touchdown and zero otherwise."""
+        if frequency_command_name is not None:
+            frequency_command = env.command_manager.get_command(frequency_command_name)[:, 0]
+            command_changed = ~torch.isclose(frequency_command, self._last_frequency_command)
+            self._has_previous_alternation.masked_fill_(command_changed, False)
+            self._time_since_alternation.masked_fill_(command_changed, 0.0)
+            self._last_frequency_command.copy_(frequency_command)
         last_air_time = self._contact_sensor.data.last_air_time
         normal_force_history = self._contact_sensor.data.net_normal_forces_w_history
         if last_air_time is None or normal_force_history is None:
@@ -360,17 +691,26 @@ class AlternatingFeetTouchdownReward(ManagerTermBase):
         air_time = last_air_time.torch[:, self._foot_body_ids]
         contact_force = normal_force_history.torch[:, :, self._foot_body_ids, :].norm(dim=-1).max(dim=1)[0]
         valid_touchdown = first_contact & (air_time >= minimum_air_time) & (contact_force >= force_threshold)
+        self._time_since_alternation += env.step_dt
+        valid_touchdown = filter_short_touchdown_intervals(
+            valid_touchdown,
+            self._last_landing_foot,
+            self._time_since_alternation,
+            minimum_alternation_interval,
+        )
         reward, updated_history = update_alternating_touchdown_state(
             valid_touchdown,
             self._last_landing_foot,
         )
         self._last_landing_foot.copy_(updated_history)
         self._episode_alternations += reward
-        self._time_since_alternation += env.step_dt
         alternating_event = reward > 0.0
         has_interval = alternating_event & self._has_previous_alternation
         interval = self._time_since_alternation.clamp_min(env.step_dt)
         frequency = torch.reciprocal(interval)
+        self._measured_frequency.copy_(torch.where(has_interval, frequency, 0.0))
+        self._frequency_event_interval.copy_(torch.where(has_interval, interval, 0.0))
+        self._has_frequency_event.copy_(has_interval)
         score = frequency_band_score(
             frequency,
             minimum_frequency,
@@ -386,7 +726,7 @@ class AlternatingFeetTouchdownReward(ManagerTermBase):
         normalized_excess = time_normalize_frequency_event_metric(frequency_excess, interval)
         self._frequency_excess_l2.copy_(torch.where(has_interval, normalized_excess, 0.0))
         self._has_previous_alternation |= alternating_event
-        self._time_since_alternation[alternating_event] = 0.0
+        self._time_since_alternation.masked_fill_(alternating_event, 0.0)
         return reward
 
 
@@ -418,6 +758,58 @@ def alternating_step_frequency_excess_l2(
     term_cfg = env.reward_manager.get_term_cfg(reward_term_name)
     reward_term = cast(AlternatingFeetTouchdownReward, term_cfg.func)
     return reward_term.frequency_excess_l2
+
+
+def commanded_step_frequency_score(
+    env: ManagerBasedRLEnv,
+    reward_term_name: str,
+    command_name: str,
+    tolerance: float,
+    target_multiplier: float = 1.0,
+) -> torch.Tensor:
+    """Score the latest alternating-step frequency against the scalar frequency command."""
+    if target_multiplier <= 0.0:
+        raise ValueError("Frequency target multiplier must be positive.")
+    term_cfg = env.reward_manager.get_term_cfg(reward_term_name)
+    reward_term = cast(AlternatingFeetTouchdownReward, term_cfg.func)
+    target = target_multiplier * env.command_manager.get_command(command_name)[:, 0]
+    score = frequency_command_score(reward_term.measured_frequency, target, tolerance)
+    normalized = time_normalize_frequency_event_metric(score, reward_term.frequency_event_interval)
+    return torch.where(reward_term.has_frequency_event, normalized, 0.0)
+
+
+def commanded_step_frequency_error_l2(
+    env: ManagerBasedRLEnv,
+    reward_term_name: str,
+    command_name: str,
+    target_multiplier: float = 1.0,
+) -> torch.Tensor:
+    """Penalize squared error from the scalar frequency command at valid frequency events."""
+    if target_multiplier <= 0.0:
+        raise ValueError("Frequency target multiplier must be positive.")
+    term_cfg = env.reward_manager.get_term_cfg(reward_term_name)
+    reward_term = cast(AlternatingFeetTouchdownReward, term_cfg.func)
+    target = target_multiplier * env.command_manager.get_command(command_name)[:, 0]
+    error = frequency_command_error_l2(reward_term.measured_frequency, target)
+    normalized = time_normalize_frequency_event_metric(error, reward_term.frequency_event_interval)
+    return torch.where(reward_term.has_frequency_event, normalized, 0.0)
+
+
+def commanded_step_frequency_relative_error_l2(
+    env: ManagerBasedRLEnv,
+    reward_term_name: str,
+    command_name: str,
+    target_multiplier: float = 1.0,
+) -> torch.Tensor:
+    """Penalize relative cadence error at valid alternating-touchdown events."""
+    if target_multiplier <= 0.0:
+        raise ValueError("Frequency target multiplier must be positive.")
+    term_cfg = env.reward_manager.get_term_cfg(reward_term_name)
+    reward_term = cast(AlternatingFeetTouchdownReward, term_cfg.func)
+    target = target_multiplier * env.command_manager.get_command(command_name)[:, 0]
+    error = frequency_command_relative_error_l2(reward_term.measured_frequency, target)
+    normalized = time_normalize_frequency_event_metric(error, reward_term.frequency_event_interval)
+    return torch.where(reward_term.has_frequency_event, normalized, 0.0)
 
 
 class StepLengthReward(ManagerTermBase):
@@ -458,8 +850,11 @@ class StepLengthReward(ManagerTermBase):
         force_threshold: float,
         crossing_margin: float,
         return_symmetry_error: bool,
+        maximum_rewarded_step_length: float | None = None,
     ) -> torch.Tensor:
         """Return positive step length or the latest left-right asymmetry."""
+        if maximum_rewarded_step_length is not None and maximum_rewarded_step_length <= 0.0:
+            raise ValueError("Maximum rewarded step length must be positive.")
         last_air_time = self._contact_sensor.data.last_air_time
         current_air_time = self._contact_sensor.data.current_air_time
         normal_force_history = self._contact_sensor.data.net_normal_forces_w_history
@@ -490,7 +885,9 @@ class StepLengthReward(ManagerTermBase):
         displacement_w = feet_pos_w - self._previous_touchdown_pos_w
         root_quat_w = self._asset.data.root_quat_w.torch.unsqueeze(1).expand(-1, 2, -1)
         forward_step_length = quat_apply_inverse(root_quat_w, displacement_w)[..., 0].clamp_min(0.0)
-        self._previous_touchdown_pos_w[valid_touchdown] = feet_pos_w[valid_touchdown]
+        self._previous_touchdown_pos_w.copy_(
+            torch.where(valid_touchdown.unsqueeze(-1), feet_pos_w, self._previous_touchdown_pos_w)
+        )
         landing_step_length, symmetry_error, updated_step_length, updated_has_step_length = update_step_length_state(
             forward_step_length,
             valid_touchdown,
@@ -502,4 +899,6 @@ class StepLengthReward(ManagerTermBase):
 
         if return_symmetry_error:
             return symmetry_error
+        if maximum_rewarded_step_length is not None:
+            return landing_step_length.clamp_max(maximum_rewarded_step_length)
         return landing_step_length

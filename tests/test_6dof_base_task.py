@@ -12,6 +12,10 @@ from isaaclab.sim import SphereCfg
 from isaaclab.sim.spawners.from_files import UsdFileCfg
 from isaaclab_physx.sim.schemas import PhysxArticulationRootPropertiesCfg
 
+from zbot_rl_isaaclab.tasks.velocity.config.zbot_6dof.agents.rsl_rl_ppo_cfg import (
+    PPORunnerCfg as WalkingPPORunnerCfg,
+)
+from zbot_rl_isaaclab.tasks.velocity.config.zbot_6dof_base.agents.rsl_rl_ppo_cfg import PPORunnerCfg
 from zbot_rl_isaaclab.tasks.velocity.config.zbot_6dof_base.env_cfg import BaseEnvCfg
 from zbot_rl_isaaclab.tasks.velocity.mdp.commands import periodic_support_side
 from zbot_rl_isaaclab.tasks.velocity.mdp.observations import (
@@ -21,7 +25,12 @@ from zbot_rl_isaaclab.tasks.velocity.mdp.observations import (
 )
 from zbot_rl_isaaclab.tasks.velocity.mdp.rewards import (
     commanded_support_force_contrast_score,
+    commanded_support_joint_force_contrast,
     ideal_support_foot_distance_score,
+    periodic_support_joint_force_tracking,
+    periodic_tracking_score,
+    signed_support_distance_contrast,
+    signed_support_force_contrast,
 )
 from zbot_rl_isaaclab.tasks.velocity.mdp.terminations import filtered_contact_above_threshold
 
@@ -102,6 +111,90 @@ def test_support_force_contrast_is_dense_and_normalized():
     torch.testing.assert_close(score, torch.tensor([0.5, 0.0, -1.0]))
 
 
+def test_periodic_tracking_score_prefers_the_sinusoidal_target():
+    target = torch.full((3,), 0.6)
+    actual = torch.tensor([0.0, 0.3, 0.6])
+
+    score = periodic_tracking_score(actual, target, tolerance=0.25)
+
+    assert score[0] < score[1] < score[2]
+    assert score[0] < 0.0
+    torch.testing.assert_close(score[2], torch.tensor(1.0))
+
+
+def test_com_and_support_force_use_the_same_signed_foot_direction():
+    distances = torch.tensor([[0.02, 0.08], [0.08, 0.02], [0.05, 0.05]])
+    forces = torch.tensor([[80.0, 20.0], [20.0, 80.0], [50.0, 50.0]])
+
+    com_contrast = signed_support_distance_contrast(distances)
+    force_contrast = signed_support_force_contrast(forces, minimum_total_force=1.0)
+
+    torch.testing.assert_close(com_contrast, torch.tensor([0.6, -0.6, 0.0]))
+    torch.testing.assert_close(force_contrast, torch.tensor([0.6, -0.6, 0.0]))
+
+
+def test_support_force_reward_uses_ordered_ankle_joint_reactions():
+    joint_forces = torch.tensor(
+        [
+            [[20.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
+            [[0.0, 0.0, 0.0], [0.0, 20.0, 0.0]],
+        ]
+    )
+    sensor = SimpleNamespace(data=SimpleNamespace(force=SimpleNamespace(torch=joint_forces)))
+
+    class _CommandManager:
+        def get_command(self, name: str) -> torch.Tensor:
+            assert name == "weight_shift"
+            return torch.tensor([[1.0], [-1.0]])
+
+    env: Any = SimpleNamespace(
+        scene=SimpleNamespace(sensors={"ankle_wrenches": sensor}),
+        command_manager=_CommandManager(),
+    )
+
+    score = commanded_support_joint_force_contrast(
+        env,
+        SceneEntityCfg("ankle_wrenches", body_ids=[0, 1]),
+        command_name="weight_shift",
+        minimum_total_force=1.0,
+    )
+
+    torch.testing.assert_close(score, torch.ones(2))
+
+
+def test_periodic_ankle_force_tracking_uses_the_successful_base_direction():
+    joint_forces = torch.tensor(
+        [
+            [[80.0, 0.0, 0.0], [20.0, 0.0, 0.0]],
+            [[20.0, 0.0, 0.0], [80.0, 0.0, 0.0]],
+        ]
+    )
+    sensor = SimpleNamespace(data=SimpleNamespace(force=SimpleNamespace(torch=joint_forces)))
+
+    class _CommandManager:
+        def get_command(self, name: str) -> torch.Tensor:
+            assert name == "weight_shift"
+            return torch.tensor([[0.5, 1.0, 0.8, 0.6], [0.5, -1.0, -0.8, 0.6]])
+
+    env: Any = SimpleNamespace(
+        scene=SimpleNamespace(sensors={"ankle_wrenches": sensor}),
+        command_manager=_CommandManager(),
+    )
+
+    score = periodic_support_joint_force_tracking(
+        env,
+        SceneEntityCfg("ankle_wrenches", body_ids=[0, 1]),
+        command_name="weight_shift",
+        minimum_total_force=1.0,
+        phase_sin_index=2,
+        target_amplitude=0.8,
+        tolerance=0.3,
+    )
+
+    assert torch.all(score > 0.0)
+    torch.testing.assert_close(score[0], score[1])
+
+
 def test_filtered_foot_contact_detects_only_force_above_threshold():
     force_matrix = torch.tensor(
         [
@@ -117,14 +210,23 @@ def test_filtered_foot_contact_detects_only_force_above_threshold():
     torch.testing.assert_close(collision, torch.tensor([False, True]))
 
 
-def test_base_task_contains_no_stepping_objective():
+def test_base_task_covers_the_frequency_range_without_a_stepping_objective():
     cfg = BaseEnvCfg()
     robot_spawn = cast(UsdFileCfg, cfg.scene.robot.spawn)
 
     observation_names = set(vars(cfg.observations.policy))
     reward_names = set(vars(cfg.rewards))
 
-    assert cfg.commands.weight_shift.period == 1.0
+    assert cfg.commands.weight_shift.minimum_frequency == 0.5
+    assert cfg.commands.weight_shift.maximum_frequency == 2.0
+    assert cfg.commands.weight_shift.resampling_time_range == (20.0, 20.0)
+    assert cfg.commands.weight_shift.frequency_reward_term_name is None
+    assert cfg.commands.weight_shift.include_phase_features
+    assert cfg.commands.weight_shift.frequency_is_full_cycle
+    assert not cfg.commands.weight_shift.randomize_phase
+    assert cfg.commands.weight_shift.curriculum_initial_maximum_frequency == 0.5
+    assert cfg.commands.weight_shift.curriculum_steps == 24_000
+    assert not cfg.commands.weight_shift.ordered
     assert cfg.commands.weight_shift.debug_vis
     marker = cast(SphereCfg, cfg.commands.weight_shift.com_projection_visualizer_cfg.markers["com_projection"])
     assert marker.radius == 0.035
@@ -138,14 +240,33 @@ def test_base_task_contains_no_stepping_objective():
     assert cfg.observations.policy.base_ang_vel.params["asset_cfg"].body_names == "base"
     assert cfg.observations.policy.projected_gravity.params["asset_cfg"].body_names == "base"
     assert cfg.observations.policy.foot_contact_forces.params["body_cfg"].body_names == "base"
-    assert cfg.observations.policy.com_relative_to_feet.params["asset_cfg"].body_names == "foot_.*"
+    ordered_feet = ["foot_0", "foot_1"]
+    assert cfg.observations.policy.foot_contact_forces.params["sensor_cfg"].body_names == ordered_feet
+    assert cfg.observations.policy.foot_contact_forces.params["sensor_cfg"].preserve_order
+    assert cfg.observations.policy.com_relative_to_feet.params["asset_cfg"].body_names == ordered_feet
+    assert cfg.observations.policy.com_relative_to_feet.params["asset_cfg"].preserve_order
     assert cfg.observations.policy.com_relative_to_feet.params["body_cfg"].body_names == "base"
     assert cfg.observations.policy.ideal_support_foot.params["command_name"] == "weight_shift"
     assert cfg.observations.policy.support_distance_error.params["command_name"] == "weight_shift"
-    assert cfg.rewards.support_distance.weight == 5.0
-    assert "std" not in cfg.rewards.support_distance.params
+    assert cfg.observations.policy.support_distance_error.params["command_index"] == 1
+    assert cfg.observations.policy.support_distance_error.params["asset_cfg"].body_names == ordered_feet
+    assert cfg.observations.policy.support_distance_error.params["asset_cfg"].preserve_order
+    assert cfg.rewards.support_distance.weight == 1.0
+    assert cfg.rewards.support_distance.func.__name__ == "periodic_support_distance_tracking"
+    assert cfg.rewards.support_distance.params["asset_cfg"].body_names == ordered_feet
+    assert cfg.rewards.support_distance.params["asset_cfg"].preserve_order
+    assert cfg.rewards.support_distance.params["phase_sin_index"] == 2
+    assert cfg.rewards.support_distance.params["target_amplitude"] == 0.6
+    assert cfg.rewards.support_distance.params["tolerance"] == 0.25
     assert cfg.rewards.support_force.weight == 2.0
+    assert cfg.rewards.support_force.func.__name__ == "periodic_support_joint_force_tracking"
+    assert cfg.rewards.support_force.params["sensor_cfg"].name == "ankle_wrenches"
+    assert cfg.rewards.support_force.params["sensor_cfg"].body_names == ["b1", "foot_1"]
+    assert cfg.rewards.support_force.params["sensor_cfg"].preserve_order
     assert cfg.rewards.support_force.params["minimum_total_force"] == 1.0
+    assert cfg.rewards.support_force.params["phase_sin_index"] == 2
+    assert cfg.rewards.support_force.params["target_amplitude"] == 0.8
+    assert cfg.rewards.support_force.params["tolerance"] == 0.3
     assert not hasattr(cfg.rewards, "swing_lift")
     assert cfg.rewards.alive.weight == 2.0
     assert not hasattr(cfg.rewards, "upright")
@@ -154,6 +275,9 @@ def test_base_task_contains_no_stepping_objective():
     assert cfg.rewards.feet_collision_penalty.weight == -500.0
     assert cfg.rewards.feet_collision_penalty.params["term_keys"] == ["feet_collision"]
     assert cfg.rewards.joint_deviation_l1.weight == -0.2
+    assert cfg.rewards.feet_slide.weight == -1.0
+    assert cfg.rewards.feet_slide.params["sensor_cfg"].body_names == "foot_.*"
+    assert cfg.rewards.feet_slide.params["asset_cfg"].body_names == "foot_.*"
     assert not hasattr(cfg.rewards, "feet_clearance")
     assert not hasattr(cfg.rewards, "joint_torques_l2")
     assert not hasattr(cfg.rewards, "double_support")
@@ -173,3 +297,24 @@ def test_base_task_contains_no_stepping_objective():
     assert cfg.terminations.feet_collision.params["threshold"] == 1.0
     assert not ({"foot_contacts", "heading_error", "base_height", "joint_velocity_limit"} & observation_names)
     assert not ({"step_length", "alternating_touchdown", "feet_air_time"} & reward_names)
+
+
+def test_base_play_mode_displays_fixed_ordered_frequencies():
+    cfg = BaseEnvCfg()
+
+    cfg.play_mode()
+
+    assert cfg.commands.weight_shift.ordered
+    assert cfg.commands.weight_shift.resampling_time_range == (1.0e9, 1.0e9)
+
+
+def test_base_restores_exploration_without_changing_walking_ppo():
+    cfg = PPORunnerCfg()
+    walking_cfg = WalkingPPORunnerCfg()
+
+    assert cfg.actor.distribution_cfg.init_std == 0.7
+    assert cfg.algorithm.learning_rate == 5.0e-4
+    assert cfg.algorithm.entropy_coef == 0.01
+    assert walking_cfg.actor.distribution_cfg.init_std == 0.4
+    assert walking_cfg.algorithm.learning_rate == 1.0e-4
+    assert walking_cfg.algorithm.entropy_coef == 0.002

@@ -29,6 +29,31 @@ TAGS = {
     "forward_reward": "Episode_Reward/body_forward_speed",
     "step_length_reward": "Episode_Reward/step_length",
     "step_asymmetry_penalty": "Episode_Reward/step_length_asymmetry",
+    "command_frequency": "Metrics/step_frequency/mean_target_frequency",
+    "balance_command_frequency": "Metrics/weight_shift/mean_target_frequency",
+    "support_distance_reward": "Episode_Reward/support_distance",
+    "support_force_reward": "Episode_Reward/support_force",
+    "command_frequency_reward": "Episode_Reward/commanded_step_frequency",
+    "command_frequency_penalty": "Episode_Reward/commanded_step_frequency_error_l2",
+    "timeout": "Episode_Termination/time_out",
+    "base_height_termination": "Episode_Termination/base_height",
+    "throughput": "Perf/total_fps",
+    "measured_sum_0p5": "Metrics/step_frequency/measured_sum_0p5",
+    "signed_error_sum_0p5": "Metrics/step_frequency/signed_error_sum_0p5",
+    "frequency_error_sum_0p5": "Metrics/step_frequency/absolute_error_sum_0p5",
+    "frequency_samples_0p5": "Metrics/step_frequency/samples_0p5",
+    "measured_sum_1": "Metrics/step_frequency/measured_sum_1",
+    "signed_error_sum_1": "Metrics/step_frequency/signed_error_sum_1",
+    "frequency_error_sum_1": "Metrics/step_frequency/absolute_error_sum_1",
+    "frequency_samples_1": "Metrics/step_frequency/samples_1",
+    "measured_sum_1p5": "Metrics/step_frequency/measured_sum_1p5",
+    "signed_error_sum_1p5": "Metrics/step_frequency/signed_error_sum_1p5",
+    "frequency_error_sum_1p5": "Metrics/step_frequency/absolute_error_sum_1p5",
+    "frequency_samples_1p5": "Metrics/step_frequency/samples_1p5",
+    "measured_sum_2": "Metrics/step_frequency/measured_sum_2",
+    "signed_error_sum_2": "Metrics/step_frequency/signed_error_sum_2",
+    "frequency_error_sum_2": "Metrics/step_frequency/absolute_error_sum_2",
+    "frequency_samples_2": "Metrics/step_frequency/samples_2",
     "action_std": "Policy/mean_std",
     "learning_rate": "Loss/learning_rate",
 }
@@ -65,11 +90,29 @@ def _load_series(run_dir: Path) -> dict[str, list[tuple[int, float]]]:
     accumulator = EventAccumulator(str(event_files[-1]), size_guidance={"scalars": 0})
     accumulator.Reload()
     available = set(accumulator.Tags().get("scalars", []))
-    return {
+    series = {
         name: [(event.step, event.value) for event in accumulator.Scalars(tag)]
         for name, tag in TAGS.items()
         if tag in available
     }
+    for label in ("0p5", "1", "1p5", "2"):
+        samples_by_step = dict(series.get(f"frequency_samples_{label}", []))
+        for output_name, sum_name in (
+            (f"measured_frequency_{label}", f"measured_sum_{label}"),
+            (f"frequency_bias_{label}", f"signed_error_sum_{label}"),
+            (f"frequency_error_{label}", f"frequency_error_sum_{label}"),
+        ):
+            series[output_name] = [
+                (
+                    step,
+                    abs(value / samples_by_step[step])
+                    if output_name.startswith("frequency_bias_")
+                    else value / samples_by_step[step],
+                )
+                for step, value in series.get(sum_name, [])
+                if samples_by_step.get(step, 0.0) > 0.0
+            ]
+    return series
 
 
 def _tail_mean(series: list[tuple[int, float]], count: int = 20) -> float:
@@ -108,6 +151,30 @@ def evaluate_trend(series: dict[str, list[tuple[int, float]]]) -> tuple[dict[str
     ready = snapshot.get("ready", 0.0) >= 0.5
     stage = snapshot.get("stage", 1.0)
 
+    if "command_frequency_reward" in series:
+        timeout = _tail_mean(series.get("timeout", []), 50)
+        command_reward = _tail_mean(series["command_frequency_reward"], 100)
+        command_penalty = _tail_mean(series.get("command_frequency_penalty", []), 100)
+        episode_length = _tail_mean(series.get("episode_length", []), 50)
+        if iteration >= 300 and timeout < 0.35 and episode_length < 400.0:
+            return snapshot, "stop_frequency_task_falling"
+        if iteration >= 600 and command_reward < 0.05 and command_penalty < -2.0:
+            return snapshot, "stop_frequency_command_not_learned"
+        measured_bins = [
+            _tail_mean(series.get(f"measured_frequency_{label}", []), 20) for label in ("0p5", "1", "1p5", "2")
+        ]
+        frequency_errors = [
+            _tail_mean(series.get(f"frequency_error_{label}", []), 20) for label in ("0p5", "1", "1p5", "2")
+        ]
+        if iteration >= 300 and all(math.isfinite(value) for value in measured_bins + frequency_errors):
+            measured_span = measured_bins[-1] - measured_bins[0]
+            mean_bin_error = sum(frequency_errors) / len(frequency_errors)
+            if measured_span < 0.5 or mean_bin_error > 0.5:
+                return snapshot, "stop_frequency_bins_not_separated"
+        if iteration >= 1000 and action_std < 0.04:
+            return snapshot, "stop_exploration_collapse"
+        return snapshot, "continue"
+
     if iteration >= 600 and stage < 2.0 and not ready and survival >= 0.8 and cadence < 0.2:
         return snapshot, "stop_no_gait"
     if iteration >= 300 and stage < 2.0 and not ready and survival >= 0.8 and cadence < 0.05 and action_std < 0.2:
@@ -145,6 +212,8 @@ def evaluate_trend(series: dict[str, list[tuple[int, float]]]) -> tuple[dict[str
 def main() -> None:
     args = _parse_args()
     args.log_file.parent.mkdir(parents=True, exist_ok=True)
+    last_iteration = -1.0
+    stagnant_checks = 0
     with args.log_file.open("a", encoding="utf-8", buffering=1) as log:
         while _process_is_training(args.pid):
             run_dir = _find_run(args.run_root, args.run_name)
@@ -154,6 +223,14 @@ def main() -> None:
                 try:
                     series = _load_series(run_dir)
                     snapshot, decision = evaluate_trend(series) if series else ({}, "waiting_for_metrics")
+                    current_iteration = snapshot.get("iteration", -1.0)
+                    if current_iteration == last_iteration:
+                        stagnant_checks += 1
+                    else:
+                        last_iteration = current_iteration
+                        stagnant_checks = 0
+                    if stagnant_checks >= 3:
+                        decision = "stop_training_stalled"
                     record = {
                         "timestamp": datetime.now().isoformat(),
                         "run_dir": str(run_dir),

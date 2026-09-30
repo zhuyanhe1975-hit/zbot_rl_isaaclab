@@ -11,15 +11,16 @@ Isaac Lab API 重新组织。
 ### 最基础的双脚支撑任务
 
 - Gym ID：`ZbotRlIsaaclab-6DOF-Base`
-- 目标：保持直立并在左右脚之间反复换载；达到一侧目标后切换到另一侧，不限制转移周期
-- 观测：身体 `base` 的速度/姿态、关节位置/速度、上一动作、左右脚三轴接触力、身体坐标系下整机重心相对左右脚的坐标、当前理想支撑脚，以及 COM 地面投影到该脚的平面距离误差
+- 目标：保持直立，并按 `0.5–2.0 Hz` 的目标频率在左右脚之间反复换载
+- 观测：身体 `base` 的速度/姿态、关节位置/速度、上一动作、左右脚三轴接触力、身体坐标系下整机重心相对左右脚的坐标、目标换载频率、当前理想支撑脚、连续周期的 `sin/cos` 相位，以及 COM 地面投影到该脚的平面距离误差
 - 奖励：存活、COM 地面投影到当前理想支撑脚的平面距离、归一化足底力差、初始关节姿态，以及最小的速度/动作平滑正则项
 
-该任务不包含抬脚、步频、落脚、步长、速度命令或课程逻辑。任务单独启用了机器人自碰撞，
+该任务不包含抬脚、落脚、步长、速度命令或课程逻辑，也不把实际落脚事件作为步频奖励。任务单独启用了机器人自碰撞，
 双脚之间设有独立的过滤接触传感器，
 任意一只脚以超过 `1 N` 的力碰到另一只脚都会立即终止回合。任务不使用足底承重比例奖励；
-当前理想支撑脚由周期 command 指定，而不是由实际接触力或距离阈值选择。完整左右循环周期为 `1.0 s`，
-每 `0.5 s` 切换一次目标脚；COM 到目标脚的平面距离只参与观测和奖励，不控制 command 切换。
+当前理想支撑脚由频率 command 指定，而不是由实际接触力或距离阈值选择。训练时每个环境从
+训练从固定 `0.5 Hz` 开始，在前 `24,000` 个环境步内逐渐把采样上限扩展到 `2.0 Hz`；每个环境采样后在一个 `20 s` 回合内保持频率不变。Base 中的频率表示每秒完成的完整左右往返周期数，因此相邻目标侧切换间隔为 `0.25–1.0 s`。回放时，各环境按索引在完整频率区间内均匀排列并保持不变。
+COM 到目标脚的平面距离只参与观测和奖励，不控制 command 切换。每回合从两脚中点相位开始；COM 与左右踝关节反力目标随周期相位按正弦曲线连续变化，统一规定正值偏向 `foot_0`、负值偏向 `foot_1`。OvPhysX 下继续沿用旧成功任务验证过的 `b1`、`foot_1` 踝反力，而不使用后端相关的足底接触流形聚合值。策略可利用 `sin/cos` 相位提前减速和换向，而不是等支撑脚方波翻转后再追赶。两项跟踪奖励均为有符号值：准确跟踪趋近 `+1`，误差超过容差后为负，避免不跟踪时仍持续获得正奖励。
 距离奖励采用归一化对比形式 `(d_other - d_ideal) / (d_ideal + d_other)`：靠近目标脚趋近 `+1`，
 位于两脚中间趋近 `0`，停在非目标脚趋近 `-1`；观测中的距离误差也采用相反符号的同尺度归一化值。
 周期阶段使用归一化足底力差 `(F_ideal - F_swing) / (F_ideal + F_swing)` 作为稠密奖励；理想支撑脚
@@ -41,8 +42,8 @@ base 任务的目标轨迹积分速度与实际 actuator/simulation 关节速度
 奖励由身体正前方速度、存活、左右脚交替落地和前向步幅组成，并惩罚身体横向速度、
 左右步幅差、关节力矩与加速度、动作突变、关节限位、足端滑移以及非足端接触。当前暂不使用
 `lin_vel_z_l2` 和 `ang_vel_xy_l2`。
-单脚支撑期间会惩罚两脚高度差的平方，不设固定高度区间；正常低幅摆动代价较小，抬腿越高
-惩罚增长越快，双脚支撑阶段不触发。
+单脚支撑期间允许两脚最多 `0.05 m` 的正常高度差；只对超过该阈值的部分施加平方惩罚，权重为
+`-1`。因此正常摆动脚离地不受罚，只有过高抬腿的代价会增长，双脚支撑阶段也不触发。
 交替落地仅在单脚首次接触、触地前腾空至少 `0.05 s` 且接触力至少 `10 N` 时计分；此外，摆动脚
 必须曾位于另一只脚后方，并在落地时越过到另一只脚前方，才构成一次有效迈步。首次落脚、同脚
 重复落地、未完成前后交换和双脚同时落地均不计分。机身 `base` 高度低于 `0.18 m` 时终止回合。
@@ -67,15 +68,16 @@ base 任务的目标轨迹积分速度与实际 actuator/simulation 关节速度
 
 ## Python 环境
 
-本机直接复用 `/home/yhzhu/AI/IsaacLab/.venv`，不在项目目录中创建第二个虚拟环境。运行命令前设置：
+本机直接复用 `/home/yhzhu/AI/IsaacLab-3.0/.venv`，不在项目目录中创建第二个虚拟环境。运行命令前设置：
 
 ```bash
 cd /home/yhzhu/myWorks_vips/zbot_rl_isaaclab
-export ISAACLAB_ENV=/home/yhzhu/AI/IsaacLab/.venv
+export ISAACLAB_ENV=/home/yhzhu/AI/IsaacLab-3.0/.venv
 export PYTHONPATH="$PWD/src${PYTHONPATH:+:$PYTHONPATH}"
+uv pip install --python "$ISAACLAB_ENV/bin/python" --no-deps -e .
 ```
 
-项目的任务入口已经以 `--no-deps` 方式注册到该环境；`PYTHONPATH` 保证修改 `src/` 后立即生效。
+安装命令会在该环境注册 `isaaclab.tasks` 入口，使 `isaaclab train` 和 `isaaclab play` 能发现本项目的任务；新建或更换虚拟环境后需重新执行。`PYTHONPATH` 保证修改 `src/` 后立即生效。
 不要在本目录运行 `uv sync` 或普通 `uv run`，否则会重新创建项目专属 `.venv`。
 
 ## 验证环境
@@ -123,11 +125,17 @@ $ISAACLAB_ENV/bin/isaaclab play \
   --checkpoint latest --num_envs 16 --viz newton
 ```
 
+## 学生网络与 sim-to-real
+
+面向真机的周期行走学生网络使用 IMU、编码器与 MIT 电机力矩反馈。教师蒸馏、传感器输入顺序、
+随机化微调和部署侧动作定义见 [学生网络 sim-to-real 说明](docs/student_sim2real.md)；
+训练入口依次为 `train_teacher_quality.sh`、`train_student.sh`、`finetune_student.sh` 和 `robust_student.sh`。
+
 ## 开发检查
 
 ```bash
-uv run --project /home/yhzhu/AI/IsaacLab --extra isaacsim --with pytest python -m pytest
-uv run --project /home/yhzhu/AI/IsaacLab --extra isaacsim pre-commit run --all-files
+uv run --project /home/yhzhu/AI/IsaacLab-3.0 --extra isaacsim --with pytest python -m pytest
+uv run --project /home/yhzhu/AI/IsaacLab-3.0 --extra isaacsim pre-commit run --all-files
 ```
 
 主要配置位于：
