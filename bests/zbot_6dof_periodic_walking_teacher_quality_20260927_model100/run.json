@@ -1,0 +1,9 @@
+{
+  "created_at": "2026-09-27T05:18:21.352182+00:00",
+  "library": "rsl_rl",
+  "metadata": {
+    "agent": "rsl_rl_cfg_entry_point"
+  },
+  "task": "ZbotRlIsaaclab-6DOF-Periodic-Walking-Teacher-Quality",
+  "version": 1
+}
