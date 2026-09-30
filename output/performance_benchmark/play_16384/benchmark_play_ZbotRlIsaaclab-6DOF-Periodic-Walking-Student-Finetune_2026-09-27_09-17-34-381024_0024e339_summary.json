@@ -1,0 +1,1319 @@
+[
+    {
+        "phase_name": "benchmark_info",
+        "measurements": [],
+        "metadata": [
+            {
+                "name": "benchmark_play benchmark_info phase",
+                "data": "benchmark_info",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play benchmark_info workflow_name",
+                "data": "benchmark_play",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play benchmark_info workflow_name",
+                "data": "benchmark_play",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play benchmark_info timestamp",
+                "data": "2026-09-27T09:17:34.381189",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play benchmark_info task",
+                "data": "ZbotRlIsaaclab-6DOF-Periodic-Walking-Student-Finetune",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play benchmark_info num_envs",
+                "data": 16384,
+                "type": "int"
+            },
+            {
+                "name": "benchmark_play benchmark_info num_steps",
+                "data": 120,
+                "type": "int"
+            },
+            {
+                "name": "benchmark_play benchmark_info environment_step_measurement_mode",
+                "data": "host_return",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play benchmark_info environment_step_warmup_steps",
+                "data": 30,
+                "type": "int"
+            }
+        ]
+    },
+    {
+        "phase_name": "startup",
+        "measurements": [
+            {
+                "name": "benchmark_play startup App Launch Time",
+                "value": 1159.8472040000001,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play startup Scene Creation Time",
+                "value": 104964.035948,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play startup Simulation Start Time",
+                "value": 485.35574199999996,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play startup Total Start Time (Launch to Train)",
+                "value": 106609.23889400001,
+                "unit": "ms",
+                "type": "single"
+            }
+        ],
+        "metadata": [
+            {
+                "name": "benchmark_play startup phase",
+                "data": "startup",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play startup workflow_name",
+                "data": "benchmark_play",
+                "type": "string"
+            }
+        ]
+    },
+    {
+        "phase_name": "runtime",
+        "measurements": [
+            {
+                "name": "benchmark_play runtime Iterations Completed",
+                "value": 120,
+                "unit": "count",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Total Wall Time",
+                "value": 14.182536748,
+                "unit": "s",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Steps per Iteration",
+                "value": 16384,
+                "unit": "frames",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Mean Iteration Time",
+                "value": 118.18780623333333,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Std Iteration Time",
+                "value": 18.97724058876634,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Max Iteration Time",
+                "value": 197.418041,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Mean Collection FPS",
+                "value": 141619.18684526178,
+                "unit": "FPS",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Std Collection FPS",
+                "value": 19209.62276884934,
+                "unit": "FPS",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Max Collection FPS",
+                "value": 178154.00245681588,
+                "unit": "FPS",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Mean Total FPS",
+                "value": 141619.18684526178,
+                "unit": "FPS",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Std Total FPS",
+                "value": 19209.62276884934,
+                "unit": "FPS",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Max Total FPS",
+                "value": 178154.00245681588,
+                "unit": "FPS",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Mean Environment Step Host-Return FPS",
+                "value": 139164.86539264768,
+                "unit": "FPS",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Std Environment Step Host-Return FPS",
+                "value": 19336.853793947706,
+                "unit": "FPS",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Max Environment Step Host-Return FPS",
+                "value": 178948.68195459712,
+                "unit": "FPS",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Mean Iterations per Second",
+                "value": 8.643749197098497,
+                "unit": "iterations/s",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Std Iterations per Second",
+                "value": 1.1724623272002772,
+                "unit": "iterations/s",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Max Iterations per Second",
+                "value": 10.873657376514641,
+                "unit": "iterations/s",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime CPU Utilization",
+                "value": 140.8777777777778,
+                "unit": "%",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime CPU Utilization std",
+                "value": 35.7981852243864,
+                "unit": "%",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime CPU Utilization n",
+                "value": 18,
+                "unit": "",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime GPU Memory Used",
+                "value": 15.72,
+                "unit": "GB",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime GPU Memory Used std",
+                "value": 0.17,
+                "unit": "GB",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime GPU Memory Used n",
+                "value": 18,
+                "unit": "",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime GPU Memory Used peak",
+                "value": 15.85,
+                "unit": "GB",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime GPU Utilization",
+                "value": 60.61,
+                "unit": "%",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime GPU Utilization std",
+                "value": 9.96,
+                "unit": "%",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime GPU Utilization n",
+                "value": 18,
+                "unit": "",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime System Memory RSS",
+                "value": 21.09,
+                "unit": "GB",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime System Memory RSS std",
+                "value": 0.18,
+                "unit": "GB",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime System Memory RSS peak",
+                "value": 21.14,
+                "unit": "GB",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime System Memory RSS n",
+                "value": 18,
+                "unit": "",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime System Memory VMS",
+                "value": 178.84,
+                "unit": "GB",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime System Memory VMS std",
+                "value": 0.36,
+                "unit": "GB",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime System Memory VMS peak",
+                "value": 178.96,
+                "unit": "GB",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime System Memory VMS n",
+                "value": 18,
+                "unit": "",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime System Memory USS",
+                "value": 20.98,
+                "unit": "GB",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime System Memory USS std",
+                "value": 0.18,
+                "unit": "GB",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime System Memory USS peak",
+                "value": 21.03,
+                "unit": "GB",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime System Memory USS n",
+                "value": 18,
+                "unit": "",
+                "type": "single"
+            }
+        ],
+        "metadata": [
+            {
+                "name": "benchmark_play runtime phase",
+                "data": "runtime",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play runtime workflow_name",
+                "data": "benchmark_play",
+                "type": "string"
+            }
+        ]
+    },
+    {
+        "phase_name": "play",
+        "measurements": [
+            {
+                "name": "benchmark_play play Mean Reward",
+                "value": -29.58670793929074,
+                "unit": "float",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play play Std Reward",
+                "value": 3.7956468524822813,
+                "unit": "float",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play play Max Reward",
+                "value": -16.54840660095215,
+                "unit": "float",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play play Mean Episode Length",
+                "value": 68.28154243304292,
+                "unit": "steps",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play play Std Episode Length",
+                "value": 22.78271438938424,
+                "unit": "steps",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play play Max Episode Length",
+                "value": 150.0,
+                "unit": "steps",
+                "type": "single"
+            }
+        ],
+        "metadata": [
+            {
+                "name": "benchmark_play play phase",
+                "data": "play",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play play workflow_name",
+                "data": "benchmark_play",
+                "type": "string"
+            }
+        ]
+    },
+    {
+        "phase_name": "hardware_info",
+        "measurements": [],
+        "metadata": [
+            {
+                "name": "benchmark_play hardware_info phase",
+                "data": "hardware_info",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play hardware_info workflow_name",
+                "data": "benchmark_play",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play hardware_info cpu_name",
+                "data": "Intel(R) Core(TM) Ultra 7 265K",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play hardware_info physical_cores",
+                "data": 20,
+                "type": "int"
+            },
+            {
+                "name": "benchmark_play hardware_info gpu_device_count",
+                "data": 1,
+                "type": "int"
+            },
+            {
+                "name": "benchmark_play hardware_info gpu_current_device",
+                "data": 0,
+                "type": "int"
+            },
+            {
+                "name": "benchmark_play hardware_info cuda_version",
+                "data": "13.0",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play hardware_info gpu_devices",
+                "data": {
+                    "0": {
+                        "name": "NVIDIA GeForce RTX 5090",
+                        "total_memory_gb": 31.32,
+                        "compute_capability": "12.0",
+                        "multi_processor_count": 170
+                    }
+                },
+                "type": "dict"
+            },
+            {
+                "name": "benchmark_play hardware_info total_ram_gb",
+                "data": 62.07,
+                "type": "float"
+            }
+        ]
+    },
+    {
+        "phase_name": "version_info",
+        "measurements": [],
+        "metadata": [
+            {
+                "name": "benchmark_play version_info phase",
+                "data": "version_info",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info workflow_name",
+                "data": "benchmark_play",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info isaaclab_version",
+                "data": "22.0.0",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info warp_version",
+                "data": "1.17.0",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info kit_version",
+                "data": "110.3.0+feature.371399.00c488ae.gl",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info isaacsim_version",
+                "data": "6.1.0-rc.26+release.49347.2d230af4.gl",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info torch_version",
+                "data": "2.12.0+cu130",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info numpy_version",
+                "data": "2.5.1",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info isaaclab_newton_version",
+                "data": "8.0.0",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info isaaclab_physx_version",
+                "data": "7.1.2",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info isaaclab_ov_version",
+                "data": "3.2.0",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info isaaclab_tasks_version",
+                "data": "19.1.1",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info isaaclab_rl_version",
+                "data": "1.2.0",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info ovrtx_version",
+                "data": "0.5.0.377615",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info ovphysx_version",
+                "data": "0.6.3",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info newton_version",
+                "data": "1.6.0",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info mujoco_version",
+                "data": "3.12.0",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info mujoco_warp_version",
+                "data": "3.12.0",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info rsl_rl_version",
+                "data": "5.5.1",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info gymnasium_version",
+                "data": "1.3.0",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info cuda_bindings_version",
+                "data": "13.3.1",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info usd_exchange_version",
+                "data": "2.3.0",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info isaaclab_release_version",
+                "data": "3.0.0",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info dev",
+                "data": {
+                    "commit_hash": "33ab3823b595c4dce98b8096d738d9146850d3d1",
+                    "commit_hash_short": "33ab3823",
+                    "branch": "HEAD",
+                    "commit_date": "2026-09-26 01:51:57 +0000",
+                    "dirty": true
+                },
+                "type": "dict"
+            }
+        ]
+    },
+    {
+        "phase_name": "frametime",
+        "measurements": [
+            {
+                "name": "benchmark_play frametime Mean Physics Frametime",
+                "value": 18.47,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime Stdev Physics Frametime",
+                "value": 4.27,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime Min Physics Frametime",
+                "value": 12.47,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime Max Physics Frametime",
+                "value": 74.95,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime Physics Frametime Samples",
+                "value": [
+                    22.465349197387695,
+                    22.882850646972656,
+                    26.962459564208984,
+                    42.3372802734375,
+                    39.79813003540039,
+                    24.292560577392578,
+                    26.241859436035156,
+                    29.820030212402344,
+                    23.23236083984375,
+                    17.141599655151367,
+                    13.236599922180176,
+                    17.139530181884766,
+                    13.543919563293457,
+                    17.213220596313477,
+                    16.110870361328125,
+                    15.17566967010498,
+                    13.284720420837402,
+                    14.566240310668945,
+                    20.405290603637695,
+                    21.9254207611084,
+                    62.75025939941406,
+                    23.17466926574707,
+                    16.541149139404297,
+                    14.189849853515625,
+                    14.535730361938477,
+                    14.733180046081543,
+                    12.98169994354248,
+                    14.177129745483398,
+                    14.418120384216309,
+                    13.90470027923584,
+                    14.61005973815918,
+                    18.785560607910156,
+                    15.777839660644531,
+                    15.155220031738281,
+                    19.220840454101562,
+                    16.1683406829834,
+                    17.053049087524414,
+                    17.47917938232422,
+                    15.847929954528809,
+                    13.650500297546387,
+                    13.493209838867188,
+                    17.150999069213867,
+                    13.944700241088867,
+                    13.188199996948242,
+                    15.16133975982666,
+                    14.585220336914062,
+                    12.93278980255127,
+                    15.030759811401367,
+                    13.539299964904785,
+                    16.263080596923828,
+                    19.174440383911133,
+                    14.229140281677246,
+                    14.56587028503418,
+                    17.588119506835938,
+                    16.74802017211914,
+                    16.71116065979004,
+                    17.85045051574707,
+                    18.14822006225586,
+                    19.214759826660156,
+                    17.850109100341797,
+                    17.774320602416992,
+                    17.20454978942871,
+                    16.207860946655273,
+                    16.07377052307129,
+                    39.69826889038086,
+                    15.36653995513916,
+                    17.556560516357422,
+                    13.84768009185791,
+                    15.302330017089844,
+                    15.634710311889648,
+                    14.15347957611084,
+                    15.905839920043945,
+                    13.736749649047852,
+                    13.385919570922852,
+                    13.547229766845703,
+                    16.753820419311523,
+                    15.723099708557129,
+                    12.897520065307617,
+                    17.16783905029297,
+                    12.636919975280762,
+                    15.220330238342285,
+                    13.778220176696777,
+                    15.730520248413086,
+                    15.02556037902832,
+                    18.73879051208496,
+                    17.956829071044922,
+                    19.76435089111328,
+                    17.718469619750977,
+                    15.88932991027832,
+                    20.686119079589844,
+                    23.89129066467285,
+                    16.80660057067871,
+                    17.323909759521484,
+                    20.41204071044922,
+                    17.480939865112305,
+                    15.341890335083008,
+                    16.215200424194336,
+                    16.21417999267578,
+                    16.359960556030273,
+                    16.81233024597168,
+                    19.345489501953125,
+                    19.434890747070312,
+                    20.248119354248047,
+                    19.37700080871582,
+                    17.964080810546875,
+                    16.376789093017578,
+                    16.529460906982422,
+                    74.94557189941406,
+                    18.397769927978516,
+                    17.746110916137695,
+                    16.3439998626709,
+                    15.09846019744873,
+                    14.67296028137207,
+                    13.907549858093262,
+                    14.092020034790039,
+                    17.98138999938965,
+                    15.159319877624512,
+                    15.928540229797363,
+                    16.12373924255371,
+                    16.53141975402832,
+                    18.652650833129883,
+                    15.1870698928833,
+                    14.743570327758789,
+                    16.223600387573242,
+                    15.064379692077637,
+                    15.807860374450684,
+                    14.554940223693848,
+                    16.72648048400879,
+                    15.57194995880127,
+                    14.157509803771973,
+                    14.548419952392578,
+                    17.31484031677246,
+                    15.395389556884766,
+                    14.721590042114258,
+                    14.595199584960938,
+                    15.412650108337402,
+                    14.606229782104492,
+                    17.200950622558594,
+                    14.798859596252441,
+                    16.08386993408203,
+                    18.661340713500977,
+                    13.965559959411621,
+                    16.656879425048828,
+                    16.772239685058594,
+                    16.187170028686523,
+                    17.957590103149414,
+                    15.289770126342773,
+                    16.250110626220703,
+                    15.340900421142578,
+                    12.473990440368652,
+                    18.564029693603516,
+                    14.999059677124023,
+                    16.95244026184082,
+                    26.537750244140625,
+                    19.251380920410156,
+                    16.63471031188965,
+                    16.693349838256836,
+                    16.315040588378906,
+                    14.360939979553223,
+                    15.82229995727539,
+                    15.217009544372559,
+                    14.67805004119873,
+                    16.907880783081055,
+                    15.397139549255371,
+                    15.574310302734375,
+                    17.90403938293457,
+                    13.78827953338623,
+                    15.64249038696289,
+                    16.96380043029785,
+                    16.898460388183594,
+                    16.202529907226562,
+                    16.15053939819336,
+                    15.842430114746094,
+                    20.364900588989258,
+                    14.670929908752441,
+                    17.0250301361084,
+                    16.049020767211914,
+                    14.344650268554688,
+                    18.570409774780273,
+                    15.737520217895508,
+                    16.296329498291016,
+                    21.27802085876465,
+                    17.511560440063477,
+                    17.090330123901367,
+                    16.778919219970703,
+                    15.918049812316895,
+                    16.427080154418945,
+                    17.441049575805664,
+                    16.459430694580078,
+                    17.687620162963867,
+                    16.445749282836914,
+                    16.206340789794922,
+                    16.15723991394043,
+                    16.640439987182617,
+                    16.846149444580078,
+                    21.424949645996094,
+                    17.46245002746582,
+                    17.376489639282227,
+                    17.83588981628418,
+                    16.7564697265625,
+                    20.45214080810547,
+                    16.380199432373047,
+                    18.329790115356445,
+                    17.49751091003418,
+                    15.367650032043457,
+                    15.223799705505371,
+                    16.597509384155273,
+                    17.947940826416016,
+                    18.310319900512695,
+                    27.139129638671875,
+                    20.77342987060547,
+                    17.64798927307129,
+                    18.552289962768555,
+                    20.292030334472656,
+                    17.66485023498535,
+                    21.78445053100586,
+                    23.530550003051758,
+                    16.138160705566406,
+                    19.27128028869629,
+                    16.004480361938477,
+                    16.45195960998535,
+                    19.236339569091797,
+                    18.39141082763672,
+                    17.263179779052734,
+                    16.68391990661621,
+                    15.180179595947266,
+                    18.39813995361328,
+                    20.646350860595703,
+                    16.012950897216797,
+                    18.32362937927246,
+                    33.17695999145508,
+                    15.052780151367188,
+                    14.999039649963379,
+                    14.762809753417969,
+                    17.167850494384766,
+                    17.041080474853516,
+                    15.503049850463867,
+                    19.898130416870117,
+                    17.823389053344727,
+                    17.390350341796875,
+                    18.65191078186035,
+                    18.730730056762695,
+                    19.618770599365234,
+                    17.409509658813477,
+                    19.12605094909668,
+                    19.51944923400879,
+                    17.324539184570312,
+                    17.55344009399414,
+                    15.902899742126465,
+                    15.554550170898438,
+                    17.388290405273438,
+                    20.082820892333984,
+                    19.506669998168945,
+                    19.30225944519043,
+                    19.35053062438965,
+                    18.540300369262695,
+                    19.369400024414062,
+                    23.00605010986328,
+                    17.574609756469727,
+                    17.905719757080078,
+                    21.0093994140625,
+                    21.317279815673828,
+                    18.728479385375977,
+                    22.21367073059082,
+                    20.25642967224121,
+                    19.41996955871582,
+                    27.050460815429688,
+                    19.78968048095703,
+                    20.878999710083008,
+                    18.54047966003418,
+                    18.342910766601562,
+                    20.08576011657715,
+                    22.547889709472656,
+                    21.64164924621582,
+                    18.161930084228516,
+                    19.17491912841797,
+                    20.39105987548828,
+                    20.972829818725586,
+                    20.466970443725586,
+                    19.43536949157715,
+                    18.660310745239258,
+                    22.239700317382812,
+                    21.06117057800293,
+                    20.86358070373535,
+                    21.234989166259766,
+                    26.31838035583496,
+                    21.093639373779297,
+                    21.75843048095703,
+                    21.02235984802246,
+                    20.606689453125,
+                    20.252639770507812,
+                    21.99720001220703,
+                    20.54620933532715,
+                    23.27294921875,
+                    19.731019973754883,
+                    19.57383918762207,
+                    19.914329528808594,
+                    19.607139587402344,
+                    21.19972038269043,
+                    23.0580997467041,
+                    18.722900390625,
+                    19.955570220947266,
+                    22.74131965637207,
+                    22.398910522460938,
+                    20.486909866333008,
+                    18.67736053466797,
+                    25.442079544067383,
+                    21.60906982421875,
+                    17.89274024963379,
+                    18.5908203125,
+                    25.77495002746582,
+                    19.899370193481445,
+                    21.664180755615234,
+                    25.229270935058594,
+                    22.3245906829834,
+                    20.65814971923828,
+                    23.64266014099121,
+                    26.191280364990234,
+                    21.3977108001709,
+                    23.172199249267578,
+                    18.33319091796875,
+                    22.087900161743164,
+                    19.31348991394043,
+                    20.107080459594727,
+                    16.978530883789062,
+                    16.417930603027344,
+                    20.368810653686523,
+                    20.02552032470703,
+                    17.248380661010742,
+                    17.055030822753906,
+                    16.25568962097168,
+                    17.320409774780273,
+                    17.601009368896484,
+                    17.498369216918945,
+                    19.596420288085938,
+                    21.88776969909668,
+                    18.78251075744629,
+                    19.136920928955078,
+                    16.605039596557617,
+                    17.922609329223633,
+                    18.312620162963867,
+                    15.909279823303223,
+                    20.2403507232666,
+                    18.465219497680664,
+                    17.233800888061523,
+                    18.11376953125,
+                    16.150039672851562,
+                    19.14727020263672,
+                    15.530019760131836,
+                    16.539880752563477,
+                    20.021869659423828,
+                    16.6541690826416,
+                    15.809940338134766,
+                    17.449979782104492,
+                    18.376930236816406,
+                    18.091520309448242,
+                    18.423179626464844,
+                    16.625520706176758,
+                    18.228580474853516,
+                    15.69591999053955,
+                    16.863679885864258,
+                    16.28907012939453,
+                    16.67521095275879,
+                    16.585369110107422,
+                    16.026399612426758,
+                    20.218120574951172,
+                    17.192190170288086,
+                    18.01304054260254,
+                    16.11833953857422,
+                    17.437320709228516,
+                    18.257869720458984,
+                    15.219929695129395,
+                    19.51453971862793,
+                    16.69301986694336,
+                    16.461380004882812,
+                    24.8900203704834,
+                    23.001249313354492,
+                    17.46240997314453,
+                    20.897859573364258,
+                    15.964269638061523,
+                    18.625469207763672,
+                    18.55735969543457,
+                    17.84052085876465,
+                    19.395389556884766,
+                    16.97930908203125,
+                    19.660690307617188,
+                    21.343910217285156,
+                    19.67591094970703,
+                    18.635730743408203,
+                    18.898359298706055,
+                    18.630279541015625,
+                    20.94976043701172,
+                    18.66107940673828,
+                    17.459320068359375,
+                    18.297929763793945,
+                    18.388029098510742,
+                    18.51742935180664,
+                    18.12442970275879,
+                    18.503570556640625,
+                    22.944679260253906,
+                    19.196130752563477,
+                    20.55797004699707,
+                    18.724519729614258,
+                    19.984800338745117,
+                    21.01137924194336,
+                    19.20854949951172,
+                    17.835660934448242,
+                    21.02359962463379,
+                    19.219789505004883,
+                    19.218679428100586,
+                    19.703399658203125,
+                    18.524599075317383,
+                    19.695119857788086,
+                    19.05072021484375,
+                    17.829090118408203,
+                    17.200380325317383,
+                    21.785860061645508,
+                    26.8835391998291,
+                    19.595800399780273,
+                    18.382469177246094,
+                    18.952110290527344,
+                    17.821969985961914,
+                    18.520309448242188,
+                    18.563880920410156,
+                    18.443309783935547,
+                    16.013179779052734,
+                    17.294979095458984,
+                    17.474489212036133,
+                    18.026180267333984,
+                    17.083520889282227,
+                    17.365619659423828,
+                    16.48320960998535,
+                    16.910280227661133,
+                    17.697999954223633,
+                    17.036239624023438,
+                    16.956809997558594,
+                    17.10865020751953,
+                    18.968849182128906,
+                    16.666860580444336,
+                    19.100709915161133,
+                    18.75691032409668,
+                    20.865480422973633,
+                    18.261009216308594,
+                    19.899370193481445,
+                    17.095619201660156,
+                    17.59037971496582,
+                    16.908639907836914,
+                    18.999610900878906,
+                    20.008039474487305,
+                    17.176450729370117,
+                    20.425010681152344,
+                    17.88574981689453,
+                    18.191770553588867,
+                    18.266210556030273,
+                    15.997779846191406,
+                    17.320749282836914,
+                    23.558340072631836,
+                    18.41728973388672,
+                    16.817459106445312,
+                    16.587739944458008,
+                    15.441180229187012,
+                    16.519460678100586,
+                    18.005239486694336,
+                    18.40273094177246,
+                    16.374469757080078,
+                    17.73693084716797,
+                    18.525070190429688,
+                    16.275999069213867,
+                    16.269859313964844,
+                    16.600160598754883,
+                    20.416080474853516,
+                    16.801559448242188,
+                    18.843809127807617,
+                    18.51888084411621,
+                    17.837139129638672,
+                    21.756189346313477,
+                    19.571260452270508,
+                    19.057249069213867,
+                    18.903270721435547,
+                    18.52021026611328,
+                    18.36193084716797,
+                    16.793550491333008,
+                    21.275779724121094,
+                    20.645530700683594,
+                    18.500659942626953,
+                    18.605300903320312,
+                    18.84239959716797,
+                    19.374889373779297,
+                    18.772899627685547,
+                    17.886310577392578,
+                    17.568710327148438,
+                    21.64756965637207,
+                    22.2880802154541,
+                    17.816919326782227,
+                    18.782560348510742,
+                    20.548309326171875,
+                    16.68182945251465,
+                    23.89076042175293,
+                    18.306720733642578,
+                    19.415199279785156,
+                    18.735719680786133,
+                    18.21047019958496,
+                    19.854520797729492,
+                    22.143739700317383,
+                    18.49135971069336,
+                    17.68886947631836,
+                    18.21887969970703,
+                    19.804359436035156,
+                    19.887359619140625,
+                    18.179590225219727,
+                    18.71558952331543,
+                    17.630189895629883,
+                    17.27305030822754,
+                    20.61124038696289,
+                    19.042810440063477,
+                    18.125139236450195,
+                    20.519880294799805,
+                    18.205839157104492,
+                    18.136680603027344,
+                    17.235170364379883,
+                    28.523460388183594,
+                    19.39337921142578,
+                    18.587919235229492,
+                    20.6387996673584,
+                    20.819969177246094,
+                    20.0327091217041,
+                    17.464860916137695,
+                    20.913440704345703,
+                    18.6447696685791,
+                    17.819589614868164,
+                    18.289520263671875,
+                    20.11578941345215,
+                    14.82472038269043,
+                    16.841020584106445,
+                    18.579219818115234,
+                    16.812820434570312,
+                    17.210769653320312,
+                    19.136899948120117,
+                    18.38132095336914,
+                    16.450719833374023,
+                    15.580949783325195,
+                    18.236900329589844,
+                    18.650489807128906,
+                    17.872419357299805,
+                    17.973100662231445,
+                    16.029869079589844,
+                    18.290279388427734,
+                    18.81671905517578,
+                    18.629669189453125,
+                    18.373809814453125,
+                    18.16706085205078,
+                    21.916460037231445,
+                    24.42003059387207,
+                    17.893699645996094,
+                    17.367660522460938,
+                    16.873510360717773,
+                    18.79924964904785,
+                    17.949560165405273,
+                    18.495349884033203,
+                    16.82636070251465,
+                    19.553030014038086,
+                    16.966989517211914,
+                    17.774890899658203,
+                    16.517240524291992,
+                    16.32628059387207,
+                    17.62575912475586,
+                    19.05801010131836,
+                    16.614049911499023,
+                    18.553590774536133,
+                    16.346540451049805,
+                    19.991100311279297,
+                    16.467500686645508,
+                    18.990039825439453,
+                    21.995769500732422,
+                    18.514310836791992,
+                    18.642059326171875,
+                    16.697750091552734,
+                    19.15365982055664,
+                    17.702770233154297,
+                    22.059200286865234,
+                    24.34062957763672,
+                    19.67176055908203,
+                    17.265169143676758,
+                    20.745580673217773,
+                    19.1800594329834,
+                    18.21550941467285,
+                    18.588319778442383,
+                    17.932270050048828,
+                    17.85063934326172,
+                    18.599489212036133,
+                    21.892629623413086,
+                    17.874670028686523,
+                    15.720780372619629,
+                    18.022600173950195,
+                    17.723400115966797,
+                    21.313249588012695,
+                    17.493690490722656,
+                    23.4472599029541,
+                    19.260780334472656
+                ],
+                "type": "list"
+            },
+            {
+                "name": "benchmark_play frametime Mean Render Frametime",
+                "value": 14.1,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime Stdev Render Frametime",
+                "value": 323.11,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime Min Render Frametime",
+                "value": 0.03,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime Max Render Frametime",
+                "value": 29572.13,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime Render Thread FPS",
+                "value": 70.922,
+                "unit": "FPS",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime Mean App_Update Frametime",
+                "value": 51669.01,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime Stdev App_Update Frametime",
+                "value": 0.0,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime Min App_Update Frametime",
+                "value": 51669.01,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime Max App_Update Frametime",
+                "value": 51669.01,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime Mean FPS",
+                "value": 0.019,
+                "unit": "FPS",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime App_Update Frametime Samples",
+                "value": [
+                    51669.011269
+                ],
+                "type": "list"
+            },
+            {
+                "name": "benchmark_play frametime Num App Updates",
+                "value": 1,
+                "unit": "",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime Real Time Factor",
+                "value": 0.445,
+                "unit": "",
+                "type": "single"
+            }
+        ],
+        "metadata": [
+            {
+                "name": "benchmark_play frametime phase",
+                "data": "frametime",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play frametime workflow_name",
+                "data": "benchmark_play",
+                "type": "string"
+            }
+        ]
+    }
+]

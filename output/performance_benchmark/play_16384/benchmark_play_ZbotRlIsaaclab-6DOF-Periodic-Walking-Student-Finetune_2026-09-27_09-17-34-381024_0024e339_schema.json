@@ -1,0 +1,163 @@
+{
+  "run": {
+    "run_id": "rsl_rl_physx_ZbotRlIsaaclab-6DOF-Periodic-Walking-Student-Finetune_20260927T011940_seed42",
+    "framework": "rsl_rl",
+    "config": {
+      "physics_backend": "physx",
+      "rendering_backend": "none",
+      "presets": []
+    },
+    "task": "ZbotRlIsaaclab-6DOF-Periodic-Walking-Student-Finetune",
+    "seed": 42,
+    "start_time_utc": "2026-09-27T01:17:33.219756+00:00",
+    "end_time_utc": "2026-09-27T01:19:40.970593+00:00",
+    "duration_s": 127.750837,
+    "status": "completed",
+    "num_envs": 16384,
+    "max_iterations": null
+  },
+  "versions": {
+    "isaaclab": "22.0.0",
+    "isaacsim": "6.1.0-rc.26+release.49347.2d230af4.gl",
+    "kit": "110.3.0+feature.371399.00c488ae.gl",
+    "newton": "1.6.0",
+    "warp": "1.17.0",
+    "mjwarp": "3.12.0",
+    "torch": "2.12.0+cu130",
+    "rsl_rl": "5.5.1",
+    "rl_games": null,
+    "skrl": null,
+    "sb3": null,
+    "git_commit": "33ab3823b595c4dce98b8096d738d9146850d3d1",
+    "git_branch": "HEAD",
+    "git_dirty": true,
+    "numpy": "2.5.1",
+    "isaaclab_newton": "8.0.0",
+    "isaaclab_physx": "7.1.2",
+    "isaaclab_ov": "3.2.0",
+    "isaaclab_tasks": "19.1.1",
+    "isaaclab_rl": "1.2.0",
+    "ovrtx": "0.5.0.377615",
+    "ovphysx": "0.6.3",
+    "mujoco": "3.12.0",
+    "cuda_bindings": "13.3.1",
+    "usd_core": null,
+    "usd_exchange": "2.3.0",
+    "isaaclab_release": "3.0.0"
+  },
+  "hardware": {
+    "hostname": "mint",
+    "gpu_devices": [
+      {
+        "name": "NVIDIA GeForce RTX 5090",
+        "mem_gb": 31.32,
+        "compute_cap": "12.0"
+      }
+    ],
+    "cpu_name": "Intel(R) Core(TM) Ultra 7 265K",
+    "cpu_count": 20,
+    "ram_gb": 62.07
+  },
+  "runtime": {
+    "startup_time_s": {
+      "app_launch": 1.159847204,
+      "env_creation": 104.964035948,
+      "first_step": 0.485355742,
+      "python_imports": null,
+      "task_config": null
+    },
+    "iterations_completed": 120,
+    "total_wall_time_s": 14.182536748,
+    "steps_per_iteration": 16384,
+    "iteration_time_s": {
+      "mean": 0.11818780623333333,
+      "std": 0.018977240588766337,
+      "peak": 0.197418041
+    },
+    "collection_fps": {
+      "mean": 141619.18684526178,
+      "std": 19209.62276884934,
+      "peak": 178154.00245681588
+    },
+    "total_fps": {
+      "mean": 141619.18684526178,
+      "std": 19209.62276884934,
+      "peak": 178154.00245681588
+    },
+    "iterations_per_s": {
+      "mean": 8.643749197098497,
+      "std": 1.1724623272002772,
+      "peak": 10.873657376514641
+    },
+    "environment_step_timing": {
+      "environment_step_time_s": {
+        "mean": 0.11773086514166667,
+        "std": 0.018961698837783265,
+        "peak": 0.197000749
+      },
+      "environment_step_fps": {
+        "mean": 139164.86539264768,
+        "std": 19336.853793947706,
+        "peak": 178948.68195459712
+      },
+      "simulation_step_time_s": null,
+      "outside_simulation_step_time_s": null,
+      "outside_simulation_step_fraction": null,
+      "environment_step_calls": 120,
+      "simulation_step_calls": null,
+      "measurement_mode": "host_return",
+      "warmup_steps": 30
+    }
+  },
+  "resources": {
+    "gpu_util_pct": {
+      "mean": 60.61,
+      "std": 9.96,
+      "peak": null
+    },
+    "gpu_mem_gb": {
+      "mean": 15.72,
+      "std": 0.17,
+      "peak": 15.85
+    },
+    "cpu_util_pct": {
+      "mean": 140.8777777777778,
+      "std": 35.7981852243864,
+      "peak": null
+    },
+    "ram_gb": {
+      "mean": 21.09,
+      "std": 0.18,
+      "peak": 21.14
+    },
+    "devices": {
+      "0": {
+        "util_pct": {
+          "mean": 60.61,
+          "std": 9.96,
+          "peak": null
+        },
+        "mem_gb": {
+          "mean": 15.72,
+          "std": 0.17,
+          "peak": 15.85
+        }
+      }
+    }
+  },
+  "success_rate": null,
+  "reward": {
+    "mean": -29.58670793929074,
+    "std": 3.7956468524822813,
+    "peak": -16.54840660095215
+  },
+  "ep_length": {
+    "mean": 68.28154243304292,
+    "std": 22.78271438938424,
+    "peak": 150.0
+  },
+  "checkpoint_path": "/home/yhzhu/myWorks_vips/zbot_rl_isaaclab/logs/rsl_rl/zbot_6dof_periodic_walking_student_finetune/2026-09-27_08-47-13_student_quality_nominal/model_100.pt",
+  "video_path": null,
+  "extra": null,
+  "schema_version": "1.4"
+}

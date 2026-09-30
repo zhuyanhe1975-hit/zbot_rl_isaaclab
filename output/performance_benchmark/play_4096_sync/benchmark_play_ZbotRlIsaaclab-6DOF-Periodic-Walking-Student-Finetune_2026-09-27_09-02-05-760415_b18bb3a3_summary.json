@@ -1,0 +1,1161 @@
+[
+    {
+        "phase_name": "benchmark_info",
+        "measurements": [],
+        "metadata": [
+            {
+                "name": "benchmark_play benchmark_info phase",
+                "data": "benchmark_info",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play benchmark_info workflow_name",
+                "data": "benchmark_play",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play benchmark_info workflow_name",
+                "data": "benchmark_play",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play benchmark_info timestamp",
+                "data": "2026-09-27T09:02:05.760583",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play benchmark_info task",
+                "data": "ZbotRlIsaaclab-6DOF-Periodic-Walking-Student-Finetune",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play benchmark_info num_envs",
+                "data": 4096,
+                "type": "int"
+            },
+            {
+                "name": "benchmark_play benchmark_info num_steps",
+                "data": 80,
+                "type": "int"
+            },
+            {
+                "name": "benchmark_play benchmark_info environment_step_measurement_mode",
+                "data": "serialized_synchronized",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play benchmark_info environment_step_warmup_steps",
+                "data": 20,
+                "type": "int"
+            }
+        ]
+    },
+    {
+        "phase_name": "startup",
+        "measurements": [
+            {
+                "name": "benchmark_play startup App Launch Time",
+                "value": 1198.1804359999999,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play startup Scene Creation Time",
+                "value": 28347.434441,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play startup Simulation Start Time",
+                "value": 349.822476,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play startup Total Start Time (Launch to Train)",
+                "value": 29895.437353,
+                "unit": "ms",
+                "type": "single"
+            }
+        ],
+        "metadata": [
+            {
+                "name": "benchmark_play startup phase",
+                "data": "startup",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play startup workflow_name",
+                "data": "benchmark_play",
+                "type": "string"
+            }
+        ]
+    },
+    {
+        "phase_name": "runtime",
+        "measurements": [
+            {
+                "name": "benchmark_play runtime Iterations Completed",
+                "value": 80,
+                "unit": "count",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Serialized Diagnostic Total Wall Time",
+                "value": 4.742145041,
+                "unit": "s",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Steps per Iteration",
+                "value": 4096,
+                "unit": "frames",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Mean Serialized Diagnostic Iteration Time",
+                "value": 59.2768130125,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Std Serialized Diagnostic Iteration Time",
+                "value": 15.035977809620109,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Max Serialized Diagnostic Iteration Time",
+                "value": 168.85013099999998,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Mean Serialized Diagnostic Collection FPS",
+                "value": 71454.98350448963,
+                "unit": "FPS",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Std Serialized Diagnostic Collection FPS",
+                "value": 10629.599396497511,
+                "unit": "FPS",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Max Serialized Diagnostic Collection FPS",
+                "value": 92711.87765001827,
+                "unit": "FPS",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Mean Serialized Diagnostic Total FPS",
+                "value": 71454.98350448963,
+                "unit": "FPS",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Std Serialized Diagnostic Total FPS",
+                "value": 10629.599396497511,
+                "unit": "FPS",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Max Serialized Diagnostic Total FPS",
+                "value": 92711.87765001827,
+                "unit": "FPS",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Mean Serialized Synchronized Environment Step FPS",
+                "value": 70215.81210203009,
+                "unit": "FPS",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Std Serialized Synchronized Environment Step FPS",
+                "value": 10761.419847406127,
+                "unit": "FPS",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Max Serialized Synchronized Environment Step FPS",
+                "value": 94306.4680240692,
+                "unit": "FPS",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Mean Synchronized Simulation Time per Environment Step",
+                "value": 32.820424737559506,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Std Synchronized Simulation Time per Environment Step",
+                "value": 4.7113150067142175,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Max Synchronized Simulation Time per Environment Step",
+                "value": 49.66670200064982,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Mean Outside Simulation Time per Environment Step",
+                "value": 25.51401414991119,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Std Outside Simulation Time per Environment Step",
+                "value": 13.836944534580377,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Max Outside Simulation Time per Environment Step",
+                "value": 133.00685299873294,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Outside Simulation Step Fraction",
+                "value": 0.43737481042937043,
+                "unit": "ratio",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Mean Serialized Diagnostic Iterations per Second",
+                "value": 17.44506433215079,
+                "unit": "iterations/s",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Std Serialized Diagnostic Iterations per Second",
+                "value": 2.5951170401605252,
+                "unit": "iterations/s",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime Max Serialized Diagnostic Iterations per Second",
+                "value": 22.634735754398992,
+                "unit": "iterations/s",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime CPU Utilization",
+                "value": 110.38571428571429,
+                "unit": "%",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime CPU Utilization std",
+                "value": 48.80885946121629,
+                "unit": "%",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime CPU Utilization n",
+                "value": 7,
+                "unit": "",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime GPU Memory Used",
+                "value": 12.17,
+                "unit": "GB",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime GPU Memory Used std",
+                "value": 0.09,
+                "unit": "GB",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime GPU Memory Used n",
+                "value": 7,
+                "unit": "",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime GPU Memory Used peak",
+                "value": 12.23,
+                "unit": "GB",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime GPU Utilization",
+                "value": 45.29,
+                "unit": "%",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime GPU Utilization std",
+                "value": 16.0,
+                "unit": "%",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime GPU Utilization n",
+                "value": 7,
+                "unit": "",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime System Memory RSS",
+                "value": 10.85,
+                "unit": "GB",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime System Memory RSS std",
+                "value": 0.24,
+                "unit": "GB",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime System Memory RSS peak",
+                "value": 10.95,
+                "unit": "GB",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime System Memory RSS n",
+                "value": 7,
+                "unit": "",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime System Memory VMS",
+                "value": 165.83,
+                "unit": "GB",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime System Memory VMS std",
+                "value": 0.36,
+                "unit": "GB",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime System Memory VMS peak",
+                "value": 165.98,
+                "unit": "GB",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime System Memory VMS n",
+                "value": 7,
+                "unit": "",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime System Memory USS",
+                "value": 10.74,
+                "unit": "GB",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime System Memory USS std",
+                "value": 0.24,
+                "unit": "GB",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime System Memory USS peak",
+                "value": 10.84,
+                "unit": "GB",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play runtime System Memory USS n",
+                "value": 7,
+                "unit": "",
+                "type": "single"
+            }
+        ],
+        "metadata": [
+            {
+                "name": "benchmark_play runtime phase",
+                "data": "runtime",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play runtime workflow_name",
+                "data": "benchmark_play",
+                "type": "string"
+            }
+        ]
+    },
+    {
+        "phase_name": "play",
+        "measurements": [
+            {
+                "name": "benchmark_play play Mean Reward",
+                "value": -28.51929619742485,
+                "unit": "float",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play play Std Reward",
+                "value": 3.040464669714008,
+                "unit": "float",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play play Max Reward",
+                "value": -23.123241424560547,
+                "unit": "float",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play play Mean Episode Length",
+                "value": 70.24451939291737,
+                "unit": "steps",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play play Std Episode Length",
+                "value": 15.131298475884027,
+                "unit": "steps",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play play Max Episode Length",
+                "value": 100.0,
+                "unit": "steps",
+                "type": "single"
+            }
+        ],
+        "metadata": [
+            {
+                "name": "benchmark_play play phase",
+                "data": "play",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play play workflow_name",
+                "data": "benchmark_play",
+                "type": "string"
+            }
+        ]
+    },
+    {
+        "phase_name": "hardware_info",
+        "measurements": [],
+        "metadata": [
+            {
+                "name": "benchmark_play hardware_info phase",
+                "data": "hardware_info",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play hardware_info workflow_name",
+                "data": "benchmark_play",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play hardware_info cpu_name",
+                "data": "Intel(R) Core(TM) Ultra 7 265K",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play hardware_info physical_cores",
+                "data": 20,
+                "type": "int"
+            },
+            {
+                "name": "benchmark_play hardware_info gpu_device_count",
+                "data": 1,
+                "type": "int"
+            },
+            {
+                "name": "benchmark_play hardware_info gpu_current_device",
+                "data": 0,
+                "type": "int"
+            },
+            {
+                "name": "benchmark_play hardware_info cuda_version",
+                "data": "13.0",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play hardware_info gpu_devices",
+                "data": {
+                    "0": {
+                        "name": "NVIDIA GeForce RTX 5090",
+                        "total_memory_gb": 31.32,
+                        "compute_capability": "12.0",
+                        "multi_processor_count": 170
+                    }
+                },
+                "type": "dict"
+            },
+            {
+                "name": "benchmark_play hardware_info total_ram_gb",
+                "data": 62.07,
+                "type": "float"
+            }
+        ]
+    },
+    {
+        "phase_name": "version_info",
+        "measurements": [],
+        "metadata": [
+            {
+                "name": "benchmark_play version_info phase",
+                "data": "version_info",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info workflow_name",
+                "data": "benchmark_play",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info isaaclab_version",
+                "data": "22.0.0",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info warp_version",
+                "data": "1.17.0",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info kit_version",
+                "data": "110.3.0+feature.371399.00c488ae.gl",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info isaacsim_version",
+                "data": "6.1.0-rc.26+release.49347.2d230af4.gl",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info torch_version",
+                "data": "2.12.0+cu130",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info numpy_version",
+                "data": "2.5.1",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info isaaclab_newton_version",
+                "data": "8.0.0",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info isaaclab_physx_version",
+                "data": "7.1.2",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info isaaclab_ov_version",
+                "data": "3.2.0",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info isaaclab_tasks_version",
+                "data": "19.1.1",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info isaaclab_rl_version",
+                "data": "1.2.0",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info ovrtx_version",
+                "data": "0.5.0.377615",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info ovphysx_version",
+                "data": "0.6.3",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info newton_version",
+                "data": "1.6.0",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info mujoco_version",
+                "data": "3.12.0",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info mujoco_warp_version",
+                "data": "3.12.0",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info rsl_rl_version",
+                "data": "5.5.1",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info gymnasium_version",
+                "data": "1.3.0",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info cuda_bindings_version",
+                "data": "13.3.1",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info usd_exchange_version",
+                "data": "2.3.0",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info isaaclab_release_version",
+                "data": "3.0.0",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play version_info dev",
+                "data": {
+                    "commit_hash": "33ab3823b595c4dce98b8096d738d9146850d3d1",
+                    "commit_hash_short": "33ab3823",
+                    "branch": "HEAD",
+                    "commit_date": "2026-09-26 01:51:57 +0000",
+                    "dirty": true
+                },
+                "type": "dict"
+            }
+        ]
+    },
+    {
+        "phase_name": "frametime",
+        "measurements": [
+            {
+                "name": "benchmark_play frametime Mean Physics Frametime",
+                "value": 7.71,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime Stdev Physics Frametime",
+                "value": 1.77,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime Min Physics Frametime",
+                "value": 3.99,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime Max Physics Frametime",
+                "value": 15.37,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime Physics Frametime Samples",
+                "value": [
+                    6.220980167388916,
+                    7.70566987991333,
+                    6.962259769439697,
+                    10.371150016784668,
+                    8.73738956451416,
+                    6.413730144500732,
+                    6.684209823608398,
+                    6.363619804382324,
+                    5.624090194702148,
+                    3.9914300441741943,
+                    8.621740341186523,
+                    5.753890037536621,
+                    6.561779975891113,
+                    6.872640132904053,
+                    6.502409934997559,
+                    6.045660018920898,
+                    5.7648701667785645,
+                    7.708620071411133,
+                    10.596050262451172,
+                    10.266220092773438,
+                    9.948419570922852,
+                    7.222829818725586,
+                    5.888979911804199,
+                    6.570370197296143,
+                    5.5889201164245605,
+                    9.113280296325684,
+                    8.720669746398926,
+                    9.579959869384766,
+                    11.4170503616333,
+                    6.311759948730469,
+                    6.992310047149658,
+                    6.392600059509277,
+                    6.4372100830078125,
+                    15.371330261230469,
+                    7.289989948272705,
+                    7.927189826965332,
+                    8.56758975982666,
+                    7.740560054779053,
+                    6.992109775543213,
+                    6.698279857635498,
+                    4.51731014251709,
+                    5.620019912719727,
+                    5.6882100105285645,
+                    6.948190212249756,
+                    5.731760025024414,
+                    7.139150142669678,
+                    5.8630900382995605,
+                    4.6290202140808105,
+                    4.9728899002075195,
+                    8.097789764404297,
+                    9.56371021270752,
+                    5.151740074157715,
+                    6.834660053253174,
+                    7.262159824371338,
+                    6.05856990814209,
+                    6.628900051116943,
+                    9.971280097961426,
+                    8.564760208129883,
+                    14.194490432739258,
+                    7.5689802169799805,
+                    5.227399826049805,
+                    7.842249870300293,
+                    6.455880165100098,
+                    7.959270000457764,
+                    8.56466007232666,
+                    7.541820049285889,
+                    5.626389980316162,
+                    6.575799942016602,
+                    8.371009826660156,
+                    7.653830051422119,
+                    8.330209732055664,
+                    7.738639831542969,
+                    5.554930210113525,
+                    11.209549903869629,
+                    8.444990158081055,
+                    6.702960014343262,
+                    6.803689956665039,
+                    6.1743597984313965,
+                    4.281010150909424,
+                    4.99822998046875,
+                    4.317689895629883,
+                    6.036220073699951,
+                    6.791210174560547,
+                    7.1331000328063965,
+                    8.195219993591309,
+                    5.166220188140869,
+                    4.801559925079346,
+                    7.834199905395508,
+                    7.1334099769592285,
+                    6.973480224609375,
+                    7.718249797821045,
+                    7.092480182647705,
+                    7.600069999694824,
+                    12.76082992553711,
+                    8.80282974243164,
+                    11.903820037841797,
+                    8.855509757995605,
+                    8.496589660644531,
+                    6.321780204772949,
+                    8.467490196228027,
+                    6.110209941864014,
+                    5.740880012512207,
+                    5.97422981262207,
+                    13.970609664916992,
+                    9.170069694519043,
+                    7.615869998931885,
+                    4.7093000411987305,
+                    8.46796989440918,
+                    4.759109973907471,
+                    6.212759971618652,
+                    6.567110061645508,
+                    7.270480155944824,
+                    7.627510070800781,
+                    7.0836501121521,
+                    6.418590068817139,
+                    7.218349933624268,
+                    7.466469764709473,
+                    5.447490215301514,
+                    7.095190048217773,
+                    5.930419921875,
+                    7.299540042877197,
+                    7.023550033569336,
+                    7.202089786529541,
+                    6.821109771728516,
+                    12.376540184020996,
+                    9.196809768676758,
+                    8.642589569091797,
+                    7.84197998046875,
+                    7.72544002532959,
+                    7.181839942932129,
+                    6.52154016494751,
+                    4.990250110626221,
+                    5.0971598625183105,
+                    5.740839958190918,
+                    10.703479766845703,
+                    5.893179893493652,
+                    9.066690444946289,
+                    7.9694600105285645,
+                    8.232830047607422,
+                    7.3821702003479,
+                    6.835559844970703,
+                    7.785130023956299,
+                    7.614290237426758,
+                    8.858010292053223,
+                    6.570919990539551,
+                    6.631869792938232,
+                    6.261149883270264,
+                    7.957560062408447,
+                    6.543499946594238,
+                    6.664400100708008,
+                    7.570429801940918,
+                    4.485869884490967,
+                    5.287960052490234,
+                    6.006269931793213,
+                    7.3177900314331055,
+                    7.068270206451416,
+                    12.805660247802734,
+                    7.21550989151001,
+                    5.4257001876831055,
+                    8.905369758605957,
+                    13.746230125427246,
+                    6.4741902351379395,
+                    15.19225025177002,
+                    11.482999801635742,
+                    8.371660232543945,
+                    5.261940002441406,
+                    6.124680042266846,
+                    5.228740215301514,
+                    6.845059871673584,
+                    5.186620235443115,
+                    5.210460186004639,
+                    5.882030010223389,
+                    7.075079917907715,
+                    6.2937397956848145,
+                    7.1777801513671875,
+                    7.661829948425293,
+                    9.286060333251953,
+                    6.340789794921875,
+                    6.563849925994873,
+                    8.165499687194824,
+                    7.611390113830566,
+                    6.88640022277832,
+                    9.787229537963867,
+                    7.737949848175049,
+                    7.193850040435791,
+                    9.573309898376465,
+                    7.6301798820495605,
+                    9.865830421447754,
+                    5.070990085601807,
+                    6.793210029602051,
+                    6.407139778137207,
+                    6.395840167999268,
+                    6.3501200675964355,
+                    9.470589637756348,
+                    9.491479873657227,
+                    8.198869705200195,
+                    7.589019775390625,
+                    7.803420066833496,
+                    7.644720077514648,
+                    6.297830104827881,
+                    7.400839805603027,
+                    7.698390007019043,
+                    7.336770057678223,
+                    9.278300285339355,
+                    6.6409502029418945,
+                    7.338359832763672,
+                    8.061750411987305,
+                    6.97769021987915,
+                    8.28870964050293,
+                    8.936039924621582,
+                    9.543390274047852,
+                    8.182649612426758,
+                    9.344550132751465,
+                    6.988800048828125,
+                    8.1428804397583,
+                    8.763349533081055,
+                    9.77003002166748,
+                    8.059009552001953,
+                    6.302499771118164,
+                    8.664859771728516,
+                    8.090849876403809,
+                    8.16061019897461,
+                    11.24545955657959,
+                    8.024430274963379,
+                    8.299090385437012,
+                    7.328929901123047,
+                    6.911769866943359,
+                    5.729589939117432,
+                    5.681809902191162,
+                    5.051060199737549,
+                    7.4044599533081055,
+                    6.921480178833008,
+                    6.683929920196533,
+                    8.288990020751953,
+                    7.777919769287109,
+                    6.8180999755859375,
+                    8.590720176696777,
+                    7.852399826049805,
+                    7.916729927062988,
+                    7.818950176239014,
+                    10.657489776611328,
+                    9.787500381469727,
+                    10.133749961853027,
+                    7.326059818267822,
+                    7.6155500411987305,
+                    6.576000213623047,
+                    8.136420249938965,
+                    8.734609603881836,
+                    7.206120014190674,
+                    9.034729957580566,
+                    6.405010223388672,
+                    8.847040176391602,
+                    6.17156982421875,
+                    9.037130355834961,
+                    7.721739768981934,
+                    7.590939998626709,
+                    8.617480278015137,
+                    5.379350185394287,
+                    5.1551899909973145,
+                    9.333609580993652,
+                    5.7327399253845215,
+                    6.047120094299316,
+                    5.754650115966797,
+                    9.17615032196045,
+                    9.473509788513184,
+                    9.599710464477539,
+                    8.826299667358398,
+                    7.477029800415039,
+                    11.037389755249023,
+                    8.82621955871582,
+                    9.485480308532715,
+                    8.396679878234863,
+                    10.395009994506836,
+                    6.089590072631836,
+                    6.887119770050049,
+                    11.654390335083008,
+                    9.00037956237793,
+                    6.529749870300293,
+                    7.576749801635742,
+                    8.798270225524902,
+                    8.502320289611816,
+                    8.323519706726074,
+                    8.87147045135498,
+                    8.562749862670898,
+                    6.591839790344238,
+                    6.622759819030762,
+                    7.694699764251709,
+                    10.344010353088379,
+                    8.256879806518555,
+                    6.169789791107178,
+                    5.477129936218262,
+                    7.603990077972412,
+                    6.90093994140625,
+                    9.504509925842285,
+                    5.322619915008545,
+                    7.417759895324707,
+                    7.587140083312988,
+                    6.61506986618042,
+                    7.782589912414551,
+                    8.528039932250977,
+                    7.911230087280273,
+                    6.712900161743164,
+                    12.901579856872559,
+                    9.87736988067627,
+                    6.101840019226074,
+                    6.903779983520508,
+                    6.406030178070068,
+                    10.231690406799316,
+                    8.729049682617188,
+                    7.534749984741211,
+                    6.645780086517334,
+                    8.750200271606445,
+                    7.567739963531494,
+                    7.461609840393066,
+                    7.3126702308654785,
+                    8.13539981842041,
+                    8.076979637145996,
+                    10.605660438537598,
+                    5.6077799797058105,
+                    9.373169898986816,
+                    7.30217981338501,
+                    8.269740104675293,
+                    6.740910053253174,
+                    7.619100093841553,
+                    8.484330177307129,
+                    9.393420219421387,
+                    8.670100212097168,
+                    11.17240047454834,
+                    8.390509605407715,
+                    7.893730163574219,
+                    7.25531005859375,
+                    7.983479976654053,
+                    6.91117000579834,
+                    7.270229816436768,
+                    12.263710021972656,
+                    10.026769638061523,
+                    5.729459762573242,
+                    6.22052001953125,
+                    7.404590129852295,
+                    8.625049591064453,
+                    6.51878023147583,
+                    9.421850204467773,
+                    8.415579795837402,
+                    7.663680076599121,
+                    10.190910339355469,
+                    6.205570220947266,
+                    9.396650314331055,
+                    10.45188045501709,
+                    8.119020462036133,
+                    6.700439929962158,
+                    5.0759100914001465,
+                    8.194689750671387,
+                    8.413290023803711,
+                    6.994830131530762,
+                    6.984469890594482,
+                    8.486490249633789,
+                    7.554910182952881,
+                    7.443459987640381,
+                    6.651730060577393,
+                    6.9205498695373535,
+                    8.447420120239258,
+                    6.697279930114746,
+                    5.169479846954346,
+                    8.17809009552002,
+                    8.516119956970215,
+                    8.440190315246582,
+                    8.301939964294434,
+                    10.297849655151367,
+                    7.222249984741211,
+                    6.745689868927002,
+                    8.478179931640625,
+                    8.746780395507812,
+                    6.825779914855957,
+                    7.383979797363281,
+                    12.728190422058105,
+                    8.0166597366333,
+                    8.34241008758545,
+                    8.398539543151855,
+                    7.485770225524902,
+                    10.307689666748047,
+                    7.141240119934082,
+                    6.686840057373047,
+                    8.00137996673584,
+                    9.236900329589844,
+                    7.05364990234375,
+                    7.4362101554870605,
+                    8.48766040802002,
+                    8.334150314331055,
+                    7.784580230712891,
+                    7.12421989440918,
+                    8.105179786682129,
+                    8.224720001220703,
+                    12.325010299682617,
+                    10.159239768981934,
+                    8.089090347290039,
+                    9.415579795837402,
+                    8.35558032989502,
+                    6.704100131988525,
+                    6.262869834899902
+                ],
+                "type": "list"
+            },
+            {
+                "name": "benchmark_play frametime Mean Render Frametime",
+                "value": 12.35,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime Stdev Render Frametime",
+                "value": 140.47,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime Min Render Frametime",
+                "value": 0.03,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime Max Render Frametime",
+                "value": 7349.6,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime Render Thread FPS",
+                "value": 80.972,
+                "unit": "FPS",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime Mean App_Update Frametime",
+                "value": 14910.96,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime Stdev App_Update Frametime",
+                "value": 0.0,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime Min App_Update Frametime",
+                "value": 14910.96,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime Max App_Update Frametime",
+                "value": 14910.96,
+                "unit": "ms",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime Mean FPS",
+                "value": 0.067,
+                "unit": "FPS",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime App_Update Frametime Samples",
+                "value": [
+                    14910.962602
+                ],
+                "type": "list"
+            },
+            {
+                "name": "benchmark_play frametime Num App Updates",
+                "value": 1,
+                "unit": "",
+                "type": "single"
+            },
+            {
+                "name": "benchmark_play frametime Real Time Factor",
+                "value": 0.522,
+                "unit": "",
+                "type": "single"
+            }
+        ],
+        "metadata": [
+            {
+                "name": "benchmark_play frametime phase",
+                "data": "frametime",
+                "type": "string"
+            },
+            {
+                "name": "benchmark_play frametime workflow_name",
+                "data": "benchmark_play",
+                "type": "string"
+            }
+        ]
+    }
+]
